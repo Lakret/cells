@@ -12,8 +12,8 @@ fn App() -> Html {
     };
 
     html! {
-        <div>
-            <button {onclick}>{ "+1" }</button>
+        <div class="mx-auto container py-10 text-white text-xl grow-1">
+            <button class="rounded-md cursor-pointer" {onclick}>{ "+1" }</button>
             <p>{ *counter }</p>
         </div>
     }
