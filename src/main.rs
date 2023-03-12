@@ -1,16 +1,16 @@
-use std::{collections::HashMap, fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display};
 
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 #[derive(Debug, Clone)]
-struct Cells {
-    by_id: HashMap<CellId, Expr>,
+pub struct Cells {
+    pub by_id: HashMap<CellId, Expr>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct CellId {
+pub struct CellId {
     col: char,
     row: usize,
 }
@@ -42,14 +42,14 @@ impl TryFrom<&str> for CellId {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum Expr {
+pub enum Expr {
     Str(String),
     Num(f64),
     Apply { op: Op, args: Vec<Expr> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Op {
+pub enum Op {
     Add,
     Sub,
     Mul,
@@ -111,15 +111,6 @@ mod tests {
 
 #[function_component]
 fn App() -> Html {
-    let counter = use_state(|| 0);
-    let onclick = {
-        let counter = counter.clone();
-        move |_| {
-            let value = *counter + 1;
-            counter.set(value);
-        }
-    };
-
     let cell_val = use_state(|| String::new());
     let onkeyup = {
         let cell_val = cell_val.clone();
@@ -143,10 +134,6 @@ fn App() -> Html {
             </div>
 
             <p>{ (*cell_val).clone() }</p>
-
-            <br/>
-            <button class="rounded-md cursor-pointer" {onclick}>{ "+1" }</button>
-            <p>{ *counter }</p>
         </div>
     }
 }
