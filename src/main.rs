@@ -236,7 +236,7 @@ fn Cell(props: &CellProps) -> Html {
         }
     };
 
-    let cell_class = "px-2 py-0.5 w-[10rem] outline-none
+    let cell_class = "px-2 py-0.5 w-[10rem] outline-none text-right
         border-collapse border-[1px] border-indigo-900 bg-indigo-800";
 
     html! {
