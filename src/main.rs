@@ -136,7 +136,7 @@ fn App() -> Html {
     let on_edit_cb_b = &on_edit_cb;
 
     html! {
-        <div class="mx-auto flex flex-col text-white text-xl grow-1">
+        <div class="mx-auto flex flex-col h-full max-h-full w-full max-w-full text-white text-xl grow-0">
             <div class="w-screen grow-0 sticky top-0 left-0 z-20 flex gap-4 px-4 py-4 bg-indigo-900">
                 <input
                     type="text"
@@ -153,61 +153,64 @@ fn App() -> Html {
                 </button>
             </div>
 
-            <div class="table table-fixed grow-1 pb-4">
-                <thead>
-                    <tr>
-                        <th class="sticky top-[4.125rem] left-0 pl-6 pr-4 z-10 w-full bg-indigo-900"></th>
+            <div class="overflow-scroll snap-y snap-mandatory pb-4">
+                <table class="table table-fixed">
+                    <thead>
+                        <tr class="snap-start">
+                            <th class="sticky top-0 left-0 snap-start pl-6 pr-4 z-10 w-full bg-indigo-900">
+                            </th>
+                            {
+                                ('A'..='Z').map(move |col| {
+                                    html! {
+                                        <th class={
+                                            format!(
+                                                "{} {}",
+                                                "sticky top-0 snap-start bg-clip-padding bg-indigo-900",
+                                                "text-center text-neutral-400 hover:text-neutral-300"
+                                            )
+                                        }>
+                                            { col }
+                                        </th>
+                                    }
+                                }).collect::<Html>()
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
                         {
-                            ('A'..='Z').map(move |col| {
+                            (1..=50).map(move |row| {
                                 html! {
-                                    <th class={
-                                        format!(
-                                            "{} {}",
-                                            "sticky top-[4.125rem] bg-indigo-900",
-                                            "text-center text-neutral-400 hover:text-neutral-300"
-                                        )
-                                    }>
-                                        { col }
-                                    </th>
+                                    <tr>
+                                    {
+                                        ('@'..='Z').map(move |col| {
+                                            if col == '@' {
+                                                html! {
+                                                    <th class={
+                                                        format!(
+                                                            "{} {}",
+                                                            "sticky left-0 snap-start pl-6 pr-4 bg-indigo-900",
+                                                            "text-right text-neutral-400 hover:text-neutral-300"
+                                                        )
+                                                    }>
+                                                        { row }
+                                                    </th>
+                                                }
+                                            } else {
+                                                html! {
+                                                    <Cell
+                                                        cell_id={ CellId { col, row } }
+                                                        on_change={ on_edit_cb_b.clone() }
+                                                    />
+                                                }
+                                            }
+                                        }).collect::<Html>()
+                                    }
+                                    </tr>
                                 }
                             }).collect::<Html>()
                         }
-                    </tr>
-                </thead>
-                <tbody>
-                    {
-                        (1..=50).map(move |row| {
-                            html! {
-                                <tr>
-                                {
-                                    ('@'..='Z').map(move |col| {
-                                        if col == '@' {
-                                            html! {
-                                                <th class={
-                                                    format!(
-                                                        "{} {}",
-                                                        "sticky left-0 pl-6 pr-4 bg-indigo-900",
-                                                        "text-right text-neutral-400 hover:text-neutral-300"
-                                                    )
-                                                }>
-                                                    { row }
-                                                </th>
-                                            }
-                                        } else {
-                                            html! {
-                                                <Cell
-                                                    cell_id={ CellId { col, row } }
-                                                    on_change={ on_edit_cb_b.clone() }
-                                                />
-                                            }
-                                        }
-                                    }).collect::<Html>()
-                                }
-                                </tr>
-                            }
-                        }).collect::<Html>()
-                    }
-                </tbody>
+                    </tbody>
+                </table>
             </div>
         </div>
     }
@@ -236,7 +239,7 @@ fn Cell(props: &CellProps) -> Html {
         }
     };
 
-    let cell_class = "px-2 py-0.5 w-[10rem] outline-none text-right
+    let cell_class = "px-2 py-0.5 w-[10rem] outline-none text-right snap-start
         border-collapse border-[1px] border-indigo-900 bg-indigo-800";
 
     html! {
