@@ -124,9 +124,50 @@ mod tests {
     }
 }
 
+// TODO: scrollable table and sticky column/row names
+// https://stackoverflow.com/questions/67540462/css-grid-layout-horizontal-and-vertical-scrolling-only-for-part-of-the-content
 #[function_component]
 fn App() -> Html {
+    let grid_class = "grid grid-cols-[repeat(27,1fr)]";
+
+    html! {
+        <div class="mx-auto container py-10 text-white text-xl grow-1">
+            <div class={ grid_class }>
+            {
+                (0..=50).flat_map(move |row| {
+                    ('@'..='Z').map(move |col| {
+                        if row == 0 && col == '@' {
+                            html! { <div></div> }
+                        } else if row == 0 {
+                            html! {
+                                <div class="text-center text-neutral-400">{ col }</div>
+                            }
+                        } else if col == '@' {
+                            html! {
+                                <div class="w-[3rem] text-center text-neutral-400">{ row }</div>
+                            }
+                        } else {
+                            html! {
+                                <Cell cell_id={CellId { col, row }} />
+                            }
+                        }
+                    })
+                }).collect::<Html>()
+            }
+            </div>
+        </div>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+struct CellProps {
+    cell_id: CellId,
+}
+
+#[function_component]
+fn Cell(props: &CellProps) -> Html {
     let cell_val = use_state(|| String::new());
+
     let onkeyup = {
         let cell_val = cell_val.clone();
         move |ev: KeyboardEvent| {
@@ -135,21 +176,14 @@ fn App() -> Html {
         }
     };
 
-    html! {
-        <div class="mx-auto container py-10 text-white text-xl grow-1">
-            <div class="flex flex-row flex-wrap">
-            {
-                (1..=10).map(|_input_idx| html! {
-                    <input type="text"
-                        value={ (*cell_val).clone() }
-                        onkeyup={onkeyup.clone()}
-                        class="bg-indigo-800 outline-none px-2 py-0.5" />
-                }).collect::<Html>()
-            }
-            </div>
+    let cell_class = "px-2 py-0.5 w-[10rem] outline-none
+        border-collapse border-[1px] border-indigo-900 bg-indigo-800";
 
-            <p>{ (*cell_val).clone() }</p>
-        </div>
+    html! {
+        <input type="text" id={ props.cell_id.to_string() }
+            value={ (*cell_val).clone() }
+            onkeyup={ onkeyup.clone() }
+            class={ cell_class }/>
     }
 }
 
