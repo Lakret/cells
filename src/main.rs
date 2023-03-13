@@ -138,14 +138,20 @@ fn App() -> Html {
     let on_edit_cb_b = &on_edit_cb;
 
     html! {
-        <div class="mx-auto px-4 py-4 text-white text-xl grow-1">
-            <input
-                type="text"
-                value={ (*edited_ref).clone() }
-                class="row-start-1 row-end-1 col-start-2 col-end-[27]"
-            />
+        <div class="mx-auto text-white text-xl grow-1">
+            <div class="w-screen flex gap-4 px-4 py-4">
+                <input
+                    type="text"
+                    value={ (*edited_ref).clone() }
+                    class="grow ml-[3rem] px-2 py-0.5 outline-none border-[1px] border-indigo-900 bg-indigo-800"
+                />
 
-            <div class="grid grid-cols-[repeat(27,1fr)]">
+                <button class="px-4 py-0.5 cursor-pointer rounded-md bg-purple-800 hover:bg-purple-700">
+                    { "Clear All" }
+                </button>
+            </div>
+
+            <div class="grid grid-cols-[repeat(27,1fr)] px-4 pb-4">
                 {
                 (0..=50).flat_map(move |row| {
                     ('@'..='Z').map(move |col| {
