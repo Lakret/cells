@@ -124,36 +124,55 @@ mod tests {
     }
 }
 
+// TODO: the whole hooks / callbacks thing becomes unwieldy here => use normal TEA
+//
 // TODO: scrollable table and sticky column/row names
 // https://stackoverflow.com/questions/67540462/css-grid-layout-horizontal-and-vertical-scrolling-only-for-part-of-the-content
 #[function_component]
 fn App() -> Html {
-    let grid_class = "grid grid-cols-[repeat(27,1fr)]";
+    let edited = use_state(|| String::new());
+    let edited_ref = edited.clone();
+    let on_edit_cb = Callback::from(move |val: String| {
+        edited.set(val);
+    });
+    let on_edit_cb_b = &on_edit_cb;
 
     html! {
-        <div class="mx-auto container py-10 text-white text-xl grow-1">
-            <div class={ grid_class }>
-            {
+        <div class="mx-auto px-4 py-4 text-white text-xl grow-1">
+            <input
+                type="text"
+                value={ (*edited_ref).clone() }
+                class="row-start-1 row-end-1 col-start-2 col-end-[27]"
+            />
+
+            <div class="grid grid-cols-[repeat(27,1fr)]">
+                {
                 (0..=50).flat_map(move |row| {
                     ('@'..='Z').map(move |col| {
                         if row == 0 && col == '@' {
                             html! { <div></div> }
                         } else if row == 0 {
                             html! {
-                                <div class="text-center text-neutral-400">{ col }</div>
+                                <div class="text-center text-neutral-400">
+                                    { col }
+                                </div>
                             }
                         } else if col == '@' {
                             html! {
-                                <div class="w-[3rem] text-center text-neutral-400">{ row }</div>
+                                <div class="w-[3rem] text-center text-neutral-400">
+                                    { row }
+                                </div>
                             }
                         } else {
                             html! {
-                                <Cell cell_id={CellId { col, row }} />
+                                <Cell
+                                    cell_id={ CellId { col, row } }
+                                    on_change={ on_edit_cb_b.clone() } />
                             }
                         }
                     })
                 }).collect::<Html>()
-            }
+                }
             </div>
         </div>
     }
@@ -162,17 +181,21 @@ fn App() -> Html {
 #[derive(Properties, PartialEq)]
 struct CellProps {
     cell_id: CellId,
+    on_change: Callback<String>,
 }
 
 #[function_component]
 fn Cell(props: &CellProps) -> Html {
     let cell_val = use_state(|| String::new());
 
+    let on_change = props.on_change.clone();
     let onkeyup = {
         let cell_val = cell_val.clone();
         move |ev: KeyboardEvent| {
             let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
-            cell_val.set(input.value());
+            let val = input.value();
+            cell_val.set(val.clone());
+            on_change.emit(val);
         }
     };
 
@@ -180,10 +203,13 @@ fn Cell(props: &CellProps) -> Html {
         border-collapse border-[1px] border-indigo-900 bg-indigo-800";
 
     html! {
-        <input type="text" id={ props.cell_id.to_string() }
+        <input
+            type="text"
+            id={ props.cell_id.to_string() }
             value={ (*cell_val).clone() }
             onkeyup={ onkeyup.clone() }
-            class={ cell_class }/>
+            class={ cell_class }
+        />
     }
 }
 
