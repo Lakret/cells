@@ -124,10 +124,10 @@ mod tests {
     }
 }
 
-// TODO: the whole hooks / callbacks thing becomes unwieldy here => use normal TEA
-//
 // TODO: scrollable table and sticky column/row names
 // https://stackoverflow.com/questions/67540462/css-grid-layout-horizontal-and-vertical-scrolling-only-for-part-of-the-content
+// TODO: the whole hooks / callbacks thing becomes unwieldy here => use normal TEA
+// TODO: selected cell, highlight row and col names on cell selection
 #[function_component]
 fn App() -> Html {
     let edited = use_state(|| String::new());
@@ -149,6 +149,10 @@ fn App() -> Html {
                 <button class="px-4 py-0.5 cursor-pointer rounded-md bg-purple-800 hover:bg-purple-700">
                     { "Clear All" }
                 </button>
+
+                <button class="px-4 py-0.5 cursor-pointer rounded-md bg-green-800 hover:bg-green-700">
+                    { "Help" }
+                </button>
             </div>
 
             <div class="grid grid-cols-[repeat(27,1fr)] px-4 pb-4">
@@ -159,13 +163,13 @@ fn App() -> Html {
                             html! { <div></div> }
                         } else if row == 0 {
                             html! {
-                                <div class="text-center text-neutral-400">
+                                <div class="text-center text-neutral-400 hover:text-neutral-300">
                                     { col }
                                 </div>
                             }
                         } else if col == '@' {
                             html! {
-                                <div class="w-[3rem] text-center text-neutral-400">
+                                <div class="w-[3rem] text-center text-neutral-400 hover:text-neutral-300">
                                     { row }
                                 </div>
                             }
