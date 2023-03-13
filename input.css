@@ -9,3 +9,42 @@ body {
   /* bg-indigo-900 */
   background-color: #312E81;
 }
+
+.cells-grid {
+  display: grid;
+  /* grid-template-columns: repeat(27, 1fr); */
+  /* grid-template-rows: repeat(51, 1fr); */
+  grid-template:
+    "topleft-corner col-ids" 1fr
+    "row-ids cells" auto
+    / 1fr auto;
+  overflow: auto;
+}
+
+.cells-grid-area-topleft-corner {
+  grid-area: topleft-corner;
+  grid-row-start: 1;
+  grid-row-end: 2;
+}
+
+.cells-grid-area-row-ids {
+  grid-area: row-ids;
+  grid-row-start: 2;
+  grid-row-end: 51;
+}
+
+.cells-grid-area-col-ids {
+  grid-area: col-ids;
+  grid-row-start: 1;
+  grid-row-end: 2;
+  grid-column-start: 2;
+  grid-column-end: 28;
+}
+
+.cells-grid-area-cells {
+  grid-area: cells;
+  grid-row-start: 2;
+  grid-row-end: 51;
+  grid-column-start: 2;
+  grid-column-end: 28;
+}

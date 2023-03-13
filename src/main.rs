@@ -124,8 +124,6 @@ mod tests {
     }
 }
 
-// TODO: scrollable table and sticky column/row names
-// https://stackoverflow.com/questions/67540462/css-grid-layout-horizontal-and-vertical-scrolling-only-for-part-of-the-content
 // TODO: the whole hooks / callbacks thing becomes unwieldy here => use normal TEA
 // TODO: selected cell, highlight row and col names on cell selection
 #[function_component]
@@ -138,8 +136,8 @@ fn App() -> Html {
     let on_edit_cb_b = &on_edit_cb;
 
     html! {
-        <div class="mx-auto text-white text-xl grow-1">
-            <div class="w-screen flex gap-4 px-4 py-4">
+        <div class="mx-auto flex flex-col text-white text-xl grow-1">
+            <div class="w-screen grow-0 sticky top-0 left-0 z-20 flex gap-4 px-4 py-4 bg-indigo-900">
                 <input
                     type="text"
                     value={ (*edited_ref).clone() }
@@ -155,34 +153,61 @@ fn App() -> Html {
                 </button>
             </div>
 
-            <div class="grid grid-cols-[repeat(27,1fr)] px-4 pb-4">
-                {
-                (0..=50).flat_map(move |row| {
-                    ('@'..='Z').map(move |col| {
-                        if row == 0 && col == '@' {
-                            html! { <div></div> }
-                        } else if row == 0 {
-                            html! {
-                                <div class="text-center text-neutral-400 hover:text-neutral-300">
-                                    { col }
-                                </div>
-                            }
-                        } else if col == '@' {
-                            html! {
-                                <div class="w-[3rem] text-center text-neutral-400 hover:text-neutral-300">
-                                    { row }
-                                </div>
-                            }
-                        } else {
-                            html! {
-                                <Cell
-                                    cell_id={ CellId { col, row } }
-                                    on_change={ on_edit_cb_b.clone() } />
-                            }
+            <div class="table table-fixed grow-1 pb-4">
+                <thead>
+                    <tr>
+                        <th class="sticky top-[4.125rem] left-0 pl-6 pr-4 z-10 w-full bg-indigo-900"></th>
+                        {
+                            ('A'..='Z').map(move |col| {
+                                html! {
+                                    <th class={
+                                        format!(
+                                            "{} {}",
+                                            "sticky top-[4.125rem] bg-indigo-900",
+                                            "text-center text-neutral-400 hover:text-neutral-300"
+                                        )
+                                    }>
+                                        { col }
+                                    </th>
+                                }
+                            }).collect::<Html>()
                         }
-                    })
-                }).collect::<Html>()
-                }
+                    </tr>
+                </thead>
+                <tbody>
+                    {
+                        (1..=50).map(move |row| {
+                            html! {
+                                <tr>
+                                {
+                                    ('@'..='Z').map(move |col| {
+                                        if col == '@' {
+                                            html! {
+                                                <th class={
+                                                    format!(
+                                                        "{} {}",
+                                                        "sticky left-0 pl-6 pr-4 bg-indigo-900",
+                                                        "text-right text-neutral-400 hover:text-neutral-300"
+                                                    )
+                                                }>
+                                                    { row }
+                                                </th>
+                                            }
+                                        } else {
+                                            html! {
+                                                <Cell
+                                                    cell_id={ CellId { col, row } }
+                                                    on_change={ on_edit_cb_b.clone() }
+                                                />
+                                            }
+                                        }
+                                    }).collect::<Html>()
+                                }
+                                </tr>
+                            }
+                        }).collect::<Html>()
+                    }
+                </tbody>
             </div>
         </div>
     }
@@ -192,6 +217,8 @@ fn App() -> Html {
 struct CellProps {
     cell_id: CellId,
     on_change: Callback<String>,
+    #[prop_or_default]
+    class: AttrValue,
 }
 
 #[function_component]
@@ -213,13 +240,15 @@ fn Cell(props: &CellProps) -> Html {
         border-collapse border-[1px] border-indigo-900 bg-indigo-800";
 
     html! {
-        <input
-            type="text"
-            id={ props.cell_id.to_string() }
-            value={ (*cell_val).clone() }
-            onkeyup={ onkeyup.clone() }
-            class={ cell_class }
-        />
+        <td>
+            <input
+                type="text"
+                id={ props.cell_id.to_string() }
+                value={ (*cell_val).clone() }
+                onkeyup={ onkeyup.clone() }
+                class={ format!("{} {}", props.class, cell_class)}
+            />
+        </td>
     }
 }
 
