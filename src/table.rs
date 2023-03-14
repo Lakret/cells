@@ -1,10 +1,13 @@
+use wasm_bindgen::JsCast;
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::cell_id::CellId;
 
 #[derive(Debug, PartialEq)]
 pub enum Msg {
-    CellFocused { cell_id: CellId },
+    CellFocused { cell_id: CellId, value: String },
+    CellChanged { cell_id: CellId, new_value: String },
 }
 
 #[derive(Default)]
@@ -14,7 +17,7 @@ pub struct Table {
 }
 
 static CELL_CLASS: &'static str = "px-2 py-0.5 w-[10rem] outline-none text-right snap-start
-border-collapse border-[1px] border-indigo-900 bg-indigo-800";
+border-collapse border-[1px] border-indigo-900 bg-indigo-800 font-mono";
 
 impl Component for Table {
     type Message = Msg;
@@ -28,10 +31,13 @@ impl Component for Table {
         html! {
             <div class="mx-auto flex flex-col h-full max-h-full w-full max-w-full text-white text-xl grow-0">
                 <div class="w-screen grow-0 sticky top-0 left-0 z-20 flex gap-4 px-4 py-4 bg-indigo-900">
-                    // value={ (*top_input_value).clone() }
                     <input
                         type="text"
-                        class="grow ml-[3rem] px-2 py-0.5 outline-none border-[1px] border-indigo-900 bg-indigo-800"
+                        value={ self.big_input_text.clone() }
+                        class={classes!(vec![
+                            "grow ml-[3rem] px-2 py-0.5 outline-none font-mono",
+                            "border-[1px] border-indigo-900 bg-indigo-800"
+                        ])}
                     />
 
                     <button class="px-4 py-0.5 cursor-pointer rounded-md bg-purple-800 hover:bg-purple-700">
@@ -60,14 +66,11 @@ impl Component for Table {
 
                                         html! {
                                             <th id={ format!("header-col-{col}") }
-                                                class={
-                                                format!(
-                                                    "{} {} {}",
+                                                class={classes!(vec![
                                                     "sticky top-0 snap-start bg-clip-padding bg-indigo-900",
                                                     "text-center",
                                                     header_style
-                                                )
-                                            }>
+                                                ])}>
                                                 { col }
                                             </th>
                                         }
@@ -93,30 +96,38 @@ impl Component for Table {
                                                     html! {
                                                         <th id={ format!("header-row-{row}") }
                                                             class={
-                                                            format!(
-                                                                "{} {} {}",
+                                                            classes!(vec![
                                                                 "sticky left-0 snap-start pl-6 pr-4 bg-indigo-900",
                                                                 "text-right",
                                                                 header_style
-                                                            )
+                                                            ])
                                                         }>
                                                             { row }
                                                         </th>
                                                     }
                                                 } else {
-                                                    let cell_id = { CellId { col, row } };
-                                                    // on_change={ on_edit_cb_b.clone() }
+                                                    let cell_id = CellId { col, row };
                                                     html! {
                                                         <td>
-                                                            // id={ props.cell_id.to_string() }
                                                             // value={ (*cell_val).clone() }
                                                             <input
                                                                 id={ cell_id.to_string() }
                                                                 type="text"
                                                                 class={ CELL_CLASS }
                                                                 onfocus={
-                                                                    ctx.link().callback(move |_ev| Msg::CellFocused {
-                                                                        cell_id: cell_id.clone()
+                                                                    ctx.link().callback(move |ev: FocusEvent| {
+                                                                        let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
+                                                                        let value = input.value();
+
+                                                                        Msg::CellFocused { cell_id, value }
+                                                                    })
+                                                                }
+                                                                oninput={
+                                                                    ctx.link().callback(move |ev: InputEvent| {
+                                                                        let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
+                                                                        let new_value = input.value();
+
+                                                                        Msg::CellChanged { cell_id, new_value }
                                                                     })
                                                                 }
                                                             />
@@ -141,8 +152,13 @@ impl Component for Table {
         web_sys::console::log_1(&format!("{msg:?}").into());
 
         match msg {
-            Msg::CellFocused { cell_id } => {
+            Msg::CellFocused { cell_id, value } => {
                 self.focused_cell = Some(cell_id);
+                self.big_input_text = value;
+                true
+            }
+            Msg::CellChanged { new_value, .. } => {
+                self.big_input_text = new_value;
                 true
             }
         }

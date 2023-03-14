@@ -6,7 +6,7 @@ pub struct Cells {
     pub by_id: HashMap<CellId, Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CellId {
     pub col: char,
     pub row: usize,
