@@ -9,11 +9,11 @@ use table::Table;
 // TODO: selected cell, highlight row and col names on cell selection
 #[function_component]
 fn App() -> Html {
-    html! {
-        <Table />
-    }
+  html! {
+      <Table />
+  }
 }
 
 fn main() {
-    yew::Renderer::<App>::new().render();
+  yew::Renderer::<App>::new().render();
 }
