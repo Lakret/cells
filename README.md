@@ -35,7 +35,8 @@ python -m http.server 8083 --directory dist
 # TODO
 
 - [x] tailwind (https://tailwindcss.com/docs/installation)
-- [ ] basic layout
-- [ ] editable cells
+- [x] basic layout
+- [x] editable cells
+- [ ] big input / cell sync
 - [ ] formula parser (nom?)
 - [ ] evaluator
