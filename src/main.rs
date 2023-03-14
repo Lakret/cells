@@ -1,6 +1,5 @@
 use yew::prelude::*;
 
-mod cell;
 mod cell_id;
 mod expr;
 mod table;
