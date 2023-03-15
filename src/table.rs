@@ -159,3 +159,5 @@ impl Component for Table {
     }
   }
 }
+
+// TODO: function component for Cell and make them selectable / make into inputs on double click
