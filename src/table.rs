@@ -1,5 +1,5 @@
-use wasm_bindgen::JsCast;
-use web_sys::HtmlInputElement;
+use wasm_bindgen::{JsCast, JsValue};
+use web_sys::{HtmlElement, HtmlInputElement, Window};
 use yew::prelude::*;
 
 use crate::cell_id::CellId;
@@ -15,9 +15,6 @@ pub struct Table {
   big_input_text: String,
   focused_cell: Option<CellId>,
 }
-
-static CELL_CLASS: &'static str = "px-2 py-0.5 w-[10rem] outline-none text-right snap-start
-border-collapse border-[1px] border-indigo-900 bg-indigo-800 font-mono";
 
 impl Component for Table {
   type Message = Msg;
@@ -170,15 +167,62 @@ A cell that can be both selected and typed into.
 */
 #[function_component]
 fn Cell(props: &CellProps) -> Html {
+  let input_mode = use_state(|| false);
+
+  let ondblclick = {
+    let input_mode = input_mode.clone();
+    let input_id = props.cell_id.to_string();
+
+    Callback::from(move |_ev: MouseEvent| {
+      input_mode.set(true);
+
+      // TODO: node ref or something like that to focus the input
+      let input_to_focus: HtmlElement = web_sys::window()
+        .expect("cannot get Window")
+        .document()
+        .expect("cannot get Document")
+        .get_element_by_id(&input_id)
+        .expect("cannot find input by id")
+        .dyn_into()
+        .expect("cannot convert to HtmlElement");
+      web_sys::console::log_1(&JsValue::from(format!("{:?}", &input_to_focus)));
+      input_to_focus.focus().expect("cannot focus");
+    })
+  };
+
   html! {
     <td>
-      <input
-        id={ props.cell_id.to_string() }
-        type="text"
-        class={ CELL_CLASS }
-        onfocus={ props.onfocus.clone() }
-        oninput={ props.oninput.clone() }
-      />
+      {
+        if *input_mode {
+          html! {
+            <input
+              id={ props.cell_id.to_string() }
+              type="text"
+              class={classes!(vec![
+                "px-2 py-0.5 w-[10rem] outline-none text-right snap-start",
+                "border-collapse border-[1px] border-indigo-900 bg-indigo-800 font-mono"
+              ])}
+              onfocus={ props.onfocus.clone() }
+              oninput={ props.oninput.clone() }
+            />
+          }
+        } else {
+          html! {
+            <div
+              id={ props.cell_id.to_string() }
+              type="text"
+              class={classes!(vec![
+                "px-2 py-0.5 w-[10rem] h-[2.125rem]",
+                "border-[1px] border-indigo-900 bg-indigo-800"
+              ])}
+              {ondblclick}
+              // onfocus={ props.onfocus.clone() }
+              // oninput={ props.oninput.clone() }
+            />
+          }
+        }
+      }
+
     </td>
   }
 }
