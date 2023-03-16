@@ -107,29 +107,25 @@ impl Component for Table {
                           } else {
                             let cell_id = CellId { col, row };
                             html! {
-                              <td>
-                                <input
-                                  id={ cell_id.to_string() }
-                                  type="text"
-                                  class={ CELL_CLASS }
-                                  onfocus={
-                                    ctx.link().callback(move |ev: FocusEvent| {
-                                      let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
-                                      let value = input.value();
+                              <Cell
+                                {cell_id}
+                                onfocus={
+                                  ctx.link().callback(move |ev: FocusEvent| {
+                                    let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
+                                    let value = input.value();
 
-                                      Msg::CellFocused { cell_id, value }
-                                    })
-                                  }
-                                  oninput={
-                                    ctx.link().callback(move |ev: InputEvent| {
-                                      let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
-                                      let new_value = input.value();
+                                    Msg::CellFocused { cell_id, value }
+                                  })
+                                }
+                                oninput={
+                                  ctx.link().callback(move |ev: InputEvent| {
+                                    let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
+                                    let new_value = input.value();
 
-                                      Msg::CellChanged { cell_id, new_value }
-                                    })
-                                  }
-                                />
-                              </td>
+                                    Msg::CellChanged { cell_id, new_value }
+                                  })
+                                }
+                              />
                             }
                           }
                         }).collect::<Html>()
@@ -161,3 +157,28 @@ impl Component for Table {
 }
 
 // TODO: function component for Cell and make them selectable / make into inputs on double click
+
+#[derive(PartialEq, Properties)]
+pub struct CellProps {
+  pub cell_id: CellId,
+  pub onfocus: Callback<FocusEvent>,
+  pub oninput: Callback<InputEvent>,
+}
+
+/**
+A cell that can be both selected and typed into.
+*/
+#[function_component]
+fn Cell(props: &CellProps) -> Html {
+  html! {
+    <td>
+      <input
+        id={ props.cell_id.to_string() }
+        type="text"
+        class={ CELL_CLASS }
+        onfocus={ props.onfocus.clone() }
+        oninput={ props.oninput.clone() }
+      />
+    </td>
+  }
+}
