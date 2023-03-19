@@ -27,7 +27,8 @@ could be served by any web server that can handle static files.
 For example:
 
 ```sh
-python -m http.server 8083 --directory dist
+trunk build --release -d prod_dist
+python -m http.server 8083 --directory prod_dist
 ```
 
 ... and you can see the app working on localhost:8083.
