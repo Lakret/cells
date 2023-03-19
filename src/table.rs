@@ -41,11 +41,17 @@ impl Component for Table {
             ])}
           />
 
-          <button class="px-4 py-0.5 cursor-pointer rounded-md bg-purple-800 hover:bg-purple-700">
+          <button class={classes!(vec![
+            "flex flex-col items-center px-4 py-0.5 cursor-pointer rounded-md",
+            "bg-purple-800 hover:bg-purple-700"
+          ])}>
             { "Clear All" }
           </button>
 
-          <button class="px-4 py-0.5 cursor-pointer rounded-md bg-green-800 hover:bg-green-700">
+          <button class={classes!(vec![
+            "flex flex-col items-center px-4 py-0.5 cursor-pointer rounded-md",
+            "bg-green-800 hover:bg-green-700"
+          ])}>
             { "Help" }
           </button>
         </div>
@@ -187,8 +193,6 @@ A cell that can be both selected and typed into.
 fn Cell(props: &CellProps) -> Html {
   let div_select_mode = use_state(|| false);
   let input_mode = use_state(|| false);
-  // TODO: do we need it?
-  // let value = use_state(|| None::<Option<String>>);
   let input_ref = use_node_ref();
 
   let onclick = {
