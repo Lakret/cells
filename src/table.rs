@@ -1,13 +1,15 @@
-use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{HtmlElement, HtmlInputElement, Window};
+use std::collections::HashMap;
+
+use wasm_bindgen::JsCast;
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
-use yew::props;
 
 use crate::cell_id::CellId;
 
 #[derive(Debug, PartialEq)]
 pub enum Msg {
   CellFocused { cell_id: CellId, value: String },
+  CellLostFocus { cell_id: CellId },
   CellChanged { cell_id: CellId, new_value: String },
 }
 
@@ -15,6 +17,7 @@ pub enum Msg {
 pub struct Table {
   big_input_text: String,
   focused_cell: Option<CellId>,
+  values: HashMap<CellId, String>,
 }
 
 impl Component for Table {
@@ -54,6 +57,7 @@ impl Component for Table {
                   <th class="sticky top-0 left-0 snap-start pl-6 pr-4 z-40 w-full bg-indigo-900">
                   </th>
                   {
+                    // col id headers
                     ('A'..='Z').map(move |col| {
                       let header_style =
                           match self.focused_cell {
@@ -83,6 +87,7 @@ impl Component for Table {
                       <tr>
                       {
                         ('@'..='Z').map(move |col| {
+                          // row id header
                           if col == '@' {
                             let header_style =
                               match self.focused_cell {
@@ -107,12 +112,18 @@ impl Component for Table {
                             html! {
                               <Cell
                                 {cell_id}
+                                value={ self.values.get(&cell_id).map(|v| v.clone()) }
                                 onfocus={
                                   ctx.link().callback(move |ev: FocusEvent| {
                                     let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
                                     let value = input.value();
 
                                     Msg::CellFocused { cell_id, value }
+                                  })
+                                }
+                                onfocusout={
+                                  ctx.link().callback(move |ev: FocusEvent| {
+                                    Msg::CellLostFocus { cell_id }
                                   })
                                 }
                                 oninput={
@@ -146,7 +157,13 @@ impl Component for Table {
         self.big_input_text = value;
         true
       }
-      Msg::CellChanged { new_value, .. } => {
+      Msg::CellLostFocus { .. } => {
+        self.focused_cell = None;
+        self.big_input_text = String::from("");
+        true
+      }
+      Msg::CellChanged { cell_id, new_value } => {
+        self.values.insert(cell_id, new_value.clone());
         self.big_input_text = new_value;
         true
       }
@@ -154,12 +171,12 @@ impl Component for Table {
   }
 }
 
-// TODO: function component for Cell and make them selectable / make into inputs on double click
-
 #[derive(PartialEq, Properties)]
 pub struct CellProps {
   pub cell_id: CellId,
+  pub value: Option<String>,
   pub onfocus: Callback<FocusEvent>,
+  pub onfocusout: Callback<FocusEvent>,
   pub oninput: Callback<InputEvent>,
 }
 
@@ -168,8 +185,19 @@ A cell that can be both selected and typed into.
 */
 #[function_component]
 fn Cell(props: &CellProps) -> Html {
+  let div_select_mode = use_state(|| false);
   let input_mode = use_state(|| false);
+  // TODO: do we need it?
+  // let value = use_state(|| None::<Option<String>>);
   let input_ref = use_node_ref();
+
+  let onclick = {
+    let div_select_mode = div_select_mode.clone();
+
+    Callback::from(move |_ev: MouseEvent| {
+      div_select_mode.set(true);
+    })
+  };
 
   let ondblclick = {
     let input_mode = input_mode.clone();
@@ -186,31 +214,71 @@ fn Cell(props: &CellProps) -> Html {
     })
   };
 
+  let div_onfocusout = {
+    let div_select_mode = div_select_mode.clone();
+    let parent_onfocusout = props.onfocusout.clone();
+
+    Callback::from(move |ev: FocusEvent| {
+      div_select_mode.set(false);
+      parent_onfocusout.emit(ev);
+    })
+  };
+
+  let input_onfocusout = {
+    let input_mode = input_mode.clone();
+    let parent_onfocusout = props.onfocusout.clone();
+
+    Callback::from(move |ev: FocusEvent| {
+      input_mode.set(false);
+      parent_onfocusout.emit(ev);
+    })
+  };
+
+  // note that the div gets a tabindex to allow focus & keyboard events;
+  // `input_ref` is used to focus the input
   html! {
     <td>
       <div class="flex">
         <input
-          ref={input_ref}
+          ref={ input_ref }
           id={ props.cell_id.to_string() }
           type="text"
           class={classes!(vec![
             "px-2 py-0.5 w-[10rem] h-[2.125rem] outline-none text-right snap-start",
             "border-collapse border-[1px] border-indigo-900 bg-indigo-800 font-mono",
-            if *input_mode { "z-10" } else { "z-0" }
+            if *input_mode { "z-10" } else { "z-0 select-none" }
           ])}
+          value={ props.value.clone() }
           onfocus={ props.onfocus.clone() }
           oninput={ props.oninput.clone() }
+          onfocusout={ input_onfocusout  }
         />
         <div
           id={ props.cell_id.to_string() }
-          type="text"
+          tabindex="0"
           class={classes!(vec![
-            "px-2 py-0.5 w-[10rem] -ml-[10rem] h-[2.125rem]",
-            "border-[1px] border-indigo-900 bg-indigo-800",
-            if *input_mode { "z-0" } else { "z-10" }
+            "flex px-2 py-0.5 w-[10rem] -ml-[10rem] h-[2.125rem]",
+            "border-[1px] border-indigo-900",
+            if *input_mode { "z-0" } else { "z-10" },
+            if *div_select_mode { "bg-indigo-700" } else { "bg-indigo-800" },
           ])}
+          {onclick}
           {ondblclick}
-        />
+          onfocusout={ div_onfocusout }
+        >
+          {
+            match &props.value {
+              None => {
+                html!{}
+              },
+              Some(value) => {
+                html!{
+                  <span class="grow text-right select-none font-mono">{ value }</span>
+                }
+              }
+            }
+          }
+        </div>
       </div>
     </td>
   }
