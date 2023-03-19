@@ -1,6 +1,7 @@
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlElement, HtmlInputElement, Window};
 use yew::prelude::*;
+use yew::props;
 
 use crate::cell_id::CellId;
 
@@ -27,7 +28,7 @@ impl Component for Table {
   fn view(&self, ctx: &Context<Self>) -> Html {
     html! {
       <div class="mx-auto flex flex-col h-full max-h-full w-full max-w-full text-white text-xl grow-0">
-        <div class="w-screen grow-0 sticky top-0 left-0 z-20 flex gap-4 px-4 py-4 bg-indigo-900">
+        <div class="w-screen grow-0 sticky top-0 left-0 z-50 flex gap-4 px-4 py-4 bg-indigo-900">
           <input
             type="text"
             value={ self.big_input_text.clone() }
@@ -50,7 +51,7 @@ impl Component for Table {
             <table class="table table-fixed">
               <thead>
                 <tr class="snap-start">
-                  <th class="sticky top-0 left-0 snap-start pl-6 pr-4 z-10 w-full bg-indigo-900">
+                  <th class="sticky top-0 left-0 snap-start pl-6 pr-4 z-40 w-full bg-indigo-900">
                   </th>
                   {
                     ('A'..='Z').map(move |col| {
@@ -64,7 +65,7 @@ impl Component for Table {
                       html! {
                         <th id={ format!("header-col-{col}") }
                           class={classes!(vec![
-                              "sticky top-0 snap-start bg-clip-padding bg-indigo-900",
+                              "z-30 sticky top-0 snap-start bg-clip-padding bg-indigo-900",
                               "text-center",
                               header_style
                           ])}>
@@ -94,7 +95,7 @@ impl Component for Table {
                               <th id={ format!("header-row-{row}") }
                                 class={
                                 classes!(vec![
-                                    "sticky left-0 snap-start pl-6 pr-4 bg-indigo-900 text-right",
+                                    "z-[35] sticky left-0 snap-start pl-6 pr-4 bg-indigo-900 text-right",
                                     header_style
                                 ])
                               }>
@@ -168,61 +169,49 @@ A cell that can be both selected and typed into.
 #[function_component]
 fn Cell(props: &CellProps) -> Html {
   let input_mode = use_state(|| false);
+  let input_ref = use_node_ref();
 
   let ondblclick = {
     let input_mode = input_mode.clone();
-    let input_id = props.cell_id.to_string();
+    let input_ref = input_ref.clone();
 
     Callback::from(move |_ev: MouseEvent| {
       input_mode.set(true);
 
-      // TODO: node ref or something like that to focus the input
-      let input_to_focus: HtmlElement = web_sys::window()
-        .expect("cannot get Window")
-        .document()
-        .expect("cannot get Document")
-        .get_element_by_id(&input_id)
-        .expect("cannot find input by id")
-        .dyn_into()
-        .expect("cannot convert to HtmlElement");
-      web_sys::console::log_1(&JsValue::from(format!("{:?}", &input_to_focus)));
-      input_to_focus.focus().expect("cannot focus");
+      input_ref
+        .cast::<HtmlInputElement>()
+        .expect("ref is not attached to an input")
+        .focus()
+        .expect("cannot focus");
     })
   };
 
   html! {
     <td>
-      {
-        if *input_mode {
-          html! {
-            <input
-              id={ props.cell_id.to_string() }
-              type="text"
-              class={classes!(vec![
-                "px-2 py-0.5 w-[10rem] outline-none text-right snap-start",
-                "border-collapse border-[1px] border-indigo-900 bg-indigo-800 font-mono"
-              ])}
-              onfocus={ props.onfocus.clone() }
-              oninput={ props.oninput.clone() }
-            />
-          }
-        } else {
-          html! {
-            <div
-              id={ props.cell_id.to_string() }
-              type="text"
-              class={classes!(vec![
-                "px-2 py-0.5 w-[10rem] h-[2.125rem]",
-                "border-[1px] border-indigo-900 bg-indigo-800"
-              ])}
-              {ondblclick}
-              // onfocus={ props.onfocus.clone() }
-              // oninput={ props.oninput.clone() }
-            />
-          }
-        }
-      }
-
+      <div class="flex">
+        <input
+          ref={input_ref}
+          id={ props.cell_id.to_string() }
+          type="text"
+          class={classes!(vec![
+            "px-2 py-0.5 w-[10rem] h-[2.125rem] outline-none text-right snap-start",
+            "border-collapse border-[1px] border-indigo-900 bg-indigo-800 font-mono",
+            if *input_mode { "z-10" } else { "z-0" }
+          ])}
+          onfocus={ props.onfocus.clone() }
+          oninput={ props.oninput.clone() }
+        />
+        <div
+          id={ props.cell_id.to_string() }
+          type="text"
+          class={classes!(vec![
+            "px-2 py-0.5 w-[10rem] -ml-[10rem] h-[2.125rem]",
+            "border-[1px] border-indigo-900 bg-indigo-800",
+            if *input_mode { "z-0" } else { "z-10" }
+          ])}
+          {ondblclick}
+        />
+      </div>
     </td>
   }
 }
