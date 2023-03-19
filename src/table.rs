@@ -18,7 +18,10 @@ pub struct Table {
   big_input_text: String,
   focused_cell: Option<CellId>,
   values: HashMap<CellId, String>,
+  computed_values: HashMap<CellId, String>,
 }
+
+// TODO: cell reference insertion mode when cell is edited and starts with =
 
 impl Component for Table {
   type Message = Msg;
@@ -119,6 +122,7 @@ impl Component for Table {
                               <Cell
                                 {cell_id}
                                 value={ self.values.get(&cell_id).map(|v| v.clone()) }
+                                computed_value={ self.computed_values.get(&cell_id).map(|v| v.clone()) }
                                 onfocus={
                                   ctx.link().callback(move |ev: FocusEvent| {
                                     let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
@@ -170,6 +174,10 @@ impl Component for Table {
       }
       Msg::CellChanged { cell_id, new_value } => {
         self.values.insert(cell_id, new_value.clone());
+        // TODO: actual computation
+        // self
+        //   .computed_values
+        //   .insert(cell_id, format!("COMP{}", new_value));
         self.big_input_text = new_value;
         true
       }
@@ -181,6 +189,7 @@ impl Component for Table {
 pub struct CellProps {
   pub cell_id: CellId,
   pub value: Option<String>,
+  pub computed_value: Option<String>,
   pub onfocus: Callback<FocusEvent>,
   pub onfocusout: Callback<FocusEvent>,
   pub oninput: Callback<InputEvent>,
@@ -238,6 +247,9 @@ fn Cell(props: &CellProps) -> Html {
     })
   };
 
+  // if `computed_value` is present, show it in the div cell, otherwise show `value`
+  let div_value = props.computed_value.clone().or(props.value.clone());
+
   // note that the div gets a tabindex to allow focus & keyboard events;
   // `input_ref` is used to focus the input
   html! {
@@ -271,7 +283,7 @@ fn Cell(props: &CellProps) -> Html {
           onfocusout={ div_onfocusout }
         >
           {
-            match &props.value {
+            match &div_value {
               None => {
                 html!{}
               },
