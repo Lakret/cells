@@ -1,4 +1,7 @@
 use crate::cell_id::CellId;
+use nom::character::complete::char;
+use nom::number::complete::be_u16;
+use nom::IResult;
 
 // TODO: (to_evaluate: HashMap<CellId, Expr>) => (deps: HashMap<CellId, Vec<CellId>>)
 
@@ -31,4 +34,14 @@ impl From<&str> for Expr {
     // TODO: Expr, Str
     todo!()
   }
+}
+
+fn parse_apply(input: &str) -> IResult<&str, Expr> {
+  todo!()
+}
+
+#[cfg(test)]
+mod tests {
+  #[test]
+  fn parse_apply_test() {}
 }

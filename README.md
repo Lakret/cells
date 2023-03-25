@@ -5,7 +5,7 @@
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install --locked trunk
-trunk serve --port 8082
+trunk serve --port 8082 --release
 ```
 
 Make sure that [Tailwind CLI](https://tailwindcss.com/docs/installation) is installed and is in the `PATH`.
