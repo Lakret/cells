@@ -44,15 +44,15 @@ mod parser {
 
   type E<'a> = nom::error::Error<&'a str>;
 
-  fn expr_num(input: &str) -> IResult<&str, Expr> {
+  fn num(input: &str) -> IResult<&str, Expr> {
     map(double, |num| Expr::Num(num))(input)
   }
 
-  fn expr_op(input: &str) -> IResult<&str, Op> {
-    let add = map(tag::<_, _, E>("+"), |_| Op::Add);
-    let sub = map(tag::<_, _, E>("-"), |_| Op::Sub);
-    let mul = map(tag::<_, _, E>("*"), |_| Op::Mul);
-    let div = map(tag::<_, _, E>("/"), |_| Op::Div);
+  fn op(input: &str) -> IResult<&str, Op> {
+    let add = map(tag("+"), |_| Op::Add);
+    let sub = map(tag("-"), |_| Op::Sub);
+    let mul = map(tag("*"), |_| Op::Mul);
+    let div = map(tag("/"), |_| Op::Div);
 
     alt((add, sub, mul, div))(input)
   }
@@ -67,14 +67,22 @@ mod parser {
     use crate::expr::Expr::*;
 
     #[test]
-    fn parse_apply_test() {}
+    fn parse_op_test() {
+      assert_eq!(op("+"), Ok(("", Op::Add)));
+      assert_eq!(op("-"), Ok(("", Op::Sub)));
+      assert_eq!(op("*"), Ok(("", Op::Mul)));
+      assert_eq!(op("/"), Ok(("", Op::Div)));
+
+      assert_eq!(op("**"), Ok(("*", Op::Mul)));
+      assert!(op("_").is_err());
+    }
 
     #[test]
     fn expr_parser_test() {
-      assert_eq!(expr_num("12"), Ok(("", Num(12.0))));
-      assert_eq!(expr_num("-12"), Ok(("", Num(-12.0))));
-      assert_eq!(expr_num("65.98"), Ok(("", Num(65.98))));
-      assert!(expr_num("sdf").is_err());
+      assert_eq!(num("12"), Ok(("", Num(12.0))));
+      assert_eq!(num("-12"), Ok(("", Num(-12.0))));
+      assert_eq!(num("65.98"), Ok(("", Num(65.98))));
+      assert!(num("sdf").is_err());
 
       // TODO: Apply, strings
     }
