@@ -2,6 +2,7 @@ use yew::prelude::*;
 
 mod cell_id;
 mod expr;
+mod parser;
 mod table;
 use table::Table;
 
