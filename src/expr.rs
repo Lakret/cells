@@ -38,6 +38,7 @@ mod parser {
   use nom::bytes::streaming::tag;
   use nom::combinator::map;
   use nom::number::complete::double;
+  use nom::sequence::Tuple;
   use nom::IResult;
 
   use super::*;
@@ -48,13 +49,34 @@ mod parser {
     map(double, |num| Expr::Num(num))(input)
   }
 
-  fn op(input: &str) -> IResult<&str, Op> {
+  fn op_additive(input: &str) -> IResult<&str, Op> {
     let add = map(tag("+"), |_| Op::Add);
     let sub = map(tag("-"), |_| Op::Sub);
+
+    alt((add, sub))(input)
+  }
+
+  fn op_multiplicative(input: &str) -> IResult<&str, Op> {
     let mul = map(tag("*"), |_| Op::Mul);
     let div = map(tag("/"), |_| Op::Div);
 
-    alt((add, sub, mul, div))(input)
+    alt((mul, div))(input)
+  }
+
+  fn op(input: &str) -> IResult<&str, Op> {
+    alt((op_additive, op_multiplicative))(input)
+  }
+
+  // expressions like `x + y` and `x - y`
+  fn additive(input: &str) -> IResult<&str, Expr> {
+    let (rest, (left, op, right)) = (num, op_additive, num).parse(input)?;
+    Ok((
+      rest,
+      Expr::Apply {
+        op,
+        args: vec![left, right],
+      },
+    ))
   }
 
   fn parse_apply(input: &str) -> IResult<&str, Expr> {
@@ -75,6 +97,31 @@ mod parser {
 
       assert_eq!(op("**"), Ok(("*", Op::Mul)));
       assert!(op("_").is_err());
+    }
+
+    #[test]
+    fn parse_additive_test() {
+      assert_eq!(
+        additive("12+85"),
+        Ok((
+          "",
+          Expr::Apply {
+            op: Op::Add,
+            args: vec![Num(12.0), Num(85.0)]
+          }
+        ))
+      );
+
+      assert_eq!(
+        additive("58.28-85.123"),
+        Ok((
+          "",
+          Expr::Apply {
+            op: Op::Sub,
+            args: vec![Num(58.28), Num(85.123)]
+          }
+        ))
+      );
     }
 
     #[test]
