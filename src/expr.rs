@@ -1,7 +1,4 @@
 use crate::cell_id::CellId;
-use nom::character::complete::char;
-use nom::number::complete::be_u16;
-use nom::IResult;
 
 // TODO: (to_evaluate: HashMap<CellId, Expr>) => (deps: HashMap<CellId, Vec<CellId>>)
 
@@ -21,27 +18,65 @@ pub enum Op {
   Div,
 }
 
-impl From<&str> for Expr {
-  fn from(value: &str) -> Self {
-    if let Ok(num) = value.parse::<f64>() {
-      return Expr::Num(num);
-    }
+// impl From<&str> for Expr {
+//   fn from(value: &str) -> Self {
+//     if let Ok(num) = value.parse::<f64>() {
+//       return Expr::Num(num);
+//     }
 
-    if let Ok(cell_id) = CellId::try_from(value) {
-      return Expr::CellRef(cell_id);
-    }
+//     if let Ok(cell_id) = CellId::try_from(value) {
+//       return Expr::CellRef(cell_id);
+//     }
 
-    // TODO: Expr, Str
+//     // TODO: Expr, Str
+//     todo!()
+//   }
+// }
+
+mod parser {
+  use nom::branch::alt;
+  use nom::bytes::streaming::tag;
+  use nom::combinator::map;
+  use nom::number::complete::double;
+  use nom::IResult;
+
+  use super::*;
+
+  type E<'a> = nom::error::Error<&'a str>;
+
+  fn expr_num(input: &str) -> IResult<&str, Expr> {
+    map(double, |num| Expr::Num(num))(input)
+  }
+
+  fn expr_op(input: &str) -> IResult<&str, Op> {
+    let add = map(tag::<_, _, E>("+"), |_| Op::Add);
+    let sub = map(tag::<_, _, E>("-"), |_| Op::Sub);
+    let mul = map(tag::<_, _, E>("*"), |_| Op::Mul);
+    let div = map(tag::<_, _, E>("/"), |_| Op::Div);
+
+    alt((add, sub, mul, div))(input)
+  }
+
+  fn parse_apply(input: &str) -> IResult<&str, Expr> {
     todo!()
   }
-}
 
-fn parse_apply(input: &str) -> IResult<&str, Expr> {
-  todo!()
-}
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+    use crate::expr::Expr::*;
 
-#[cfg(test)]
-mod tests {
-  #[test]
-  fn parse_apply_test() {}
+    #[test]
+    fn parse_apply_test() {}
+
+    #[test]
+    fn expr_parser_test() {
+      assert_eq!(expr_num("12"), Ok(("", Num(12.0))));
+      assert_eq!(expr_num("-12"), Ok(("", Num(-12.0))));
+      assert_eq!(expr_num("65.98"), Ok(("", Num(65.98))));
+      assert!(expr_num("sdf").is_err());
+
+      // TODO: Apply, strings
+    }
+  }
 }

@@ -84,13 +84,4 @@ mod tests {
       Err("malformed cell id: missing or non-existent row (should be a positive integer)")
     );
   }
-
-  #[test]
-  fn expr_parser_test() {
-    assert_eq!(Expr::from("12"), Num(12.0));
-    assert_eq!(Expr::from("-12"), Num(-12.0));
-    assert_eq!(Expr::from("65.98"), Num(65.98));
-
-    // TODO: Apply, strings
-  }
 }
