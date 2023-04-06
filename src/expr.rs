@@ -36,9 +36,11 @@ pub enum Op {
 mod parser {
   use nom::branch::alt;
   use nom::bytes::streaming::tag;
+  use nom::character::complete::{char, space0};
   use nom::combinator::map;
+  use nom::multi::{self, fold_many0, fold_many1};
   use nom::number::complete::double;
-  use nom::sequence::Tuple;
+  use nom::sequence::{delimited, pair, Tuple};
   use nom::IResult;
 
   use super::*;
@@ -46,19 +48,19 @@ mod parser {
   type E<'a> = nom::error::Error<&'a str>;
 
   fn num(input: &str) -> IResult<&str, Expr> {
-    map(double, |num| Expr::Num(num))(input)
+    map(delimited(space0, double, space0), |num| Expr::Num(num))(input)
   }
 
   fn op_additive(input: &str) -> IResult<&str, Op> {
-    let add = map(tag("+"), |_| Op::Add);
-    let sub = map(tag("-"), |_| Op::Sub);
+    let add = map(char('+'), |_| Op::Add);
+    let sub = map(char('-'), |_| Op::Sub);
 
     alt((add, sub))(input)
   }
 
   fn op_multiplicative(input: &str) -> IResult<&str, Op> {
-    let mul = map(tag("*"), |_| Op::Mul);
-    let div = map(tag("/"), |_| Op::Div);
+    let mul = map(char('*'), |_| Op::Mul);
+    let div = map(char('/'), |_| Op::Div);
 
     alt((mul, div))(input)
   }
@@ -67,20 +69,74 @@ mod parser {
     alt((op_additive, op_multiplicative))(input)
   }
 
-  // expressions like `x + y` and `x - y`
-  fn additive(input: &str) -> IResult<&str, Expr> {
-    let (rest, (left, op, right)) = (num, op_additive, num).parse(input)?;
-    Ok((
-      rest,
-      Expr::Apply {
-        op,
-        args: vec![left, right],
+  /// Parses expressions like `x*y` and `x/y*z` into an `Expr::Apply`.
+  fn multiplicative(input: &str) -> IResult<&str, Expr> {
+    // takes the first term and keeps the rest in input
+    // TODO: replace with term (parens or num)
+    let (input, start) = num(input)?;
+
+    // for each successive application of `*x` or `/x`,
+    // adds the corresponding tuple to the `ops` vector.
+    let (rest, ops) = fold_many1(
+      // TODO: Replace num with term
+      pair(op_multiplicative, num),
+      Vec::new,
+      |mut acc, (op, val)| {
+        acc.push((op, val));
+        acc
       },
-    ))
+    )(input)?;
+
+    // At this point, `start` contains the first term
+    // and `ops` contains a vector of a form `[(op1, term2), (op2, term3), ...]`.
+    // We can now proceed to build a well-formed Apply by starting with transforming the `start` term
+    // and the first tuple in the `ops` into a valid Apply (equivalent to `Apply {op: op1, args: [start, term2]}`).
+    let mut res = Expr::Apply {
+      op: ops[0].0.clone(),
+      args: vec![start, ops[0].1.clone()],
+    };
+
+    // ... and then we progressively represent each operation in the chain by wrapping it in Apply
+    // and using the "result so far" as the first argument of that Apply.
+    for (op, arg2) in ops.into_iter().skip(1) {
+      res = Expr::Apply {
+        op,
+        args: vec![res.clone(), arg2],
+      }
+    }
+
+    Ok((rest, res))
   }
 
-  fn parse_apply(input: &str) -> IResult<&str, Expr> {
-    todo!()
+  /// Parses expressions like `x+y` and `x*y/z-a*b`.
+  fn additive(input: &str) -> IResult<&str, Expr> {
+    let (input, start) = alt((multiplicative, num))(input)?;
+    let (rest, ops) = fold_many1(
+      pair(op_additive, alt((multiplicative, num))),
+      Vec::new,
+      |mut acc, (op, val)| {
+        acc.push((op, val));
+        acc
+      },
+    )(input)?;
+
+    let mut res = Expr::Apply {
+      op: ops[0].0.clone(),
+      args: vec![start, ops[0].1.clone()],
+    };
+
+    for (op, arg2) in ops.into_iter().skip(1) {
+      res = Expr::Apply {
+        op,
+        args: vec![res.clone(), arg2],
+      }
+    }
+
+    Ok((rest, res))
+  }
+
+  fn expr(input: &str) -> IResult<&str, Expr> {
+    alt((additive, multiplicative, num))(input)
   }
 
   #[cfg(test)]
@@ -100,25 +156,83 @@ mod parser {
     }
 
     #[test]
-    fn parse_additive_test() {
+    fn parse_exr_test() {
+      assert_eq!(expr("12"), Ok(("", Num(12.0))));
+      assert_eq!(expr("-12"), Ok(("", Num(-12.0))));
+      assert_eq!(expr("65.98"), Ok(("", Num(65.98))));
+
       assert_eq!(
-        additive("12+85"),
+        expr("6+15"),
         Ok((
           "",
-          Expr::Apply {
+          Apply {
             op: Op::Add,
-            args: vec![Num(12.0), Num(85.0)]
+            args: vec![Num(6.0), Num(15.0)]
           }
         ))
       );
 
       assert_eq!(
-        additive("58.28-85.123"),
+        expr("6/ 3.5 + 15"),
         Ok((
           "",
-          Expr::Apply {
-            op: Op::Sub,
-            args: vec![Num(58.28), Num(85.123)]
+          Apply {
+            op: Op::Add,
+            args: vec![
+              Apply {
+                op: Op::Div,
+                args: vec![Num(6.0), Num(3.5)]
+              },
+              Num(15.0)
+            ]
+          }
+        ))
+      );
+
+      assert_eq!(
+        expr("6 / 2 + 15 * 2"),
+        Ok((
+          "",
+          Apply {
+            op: Op::Add,
+            args: vec![
+              Apply {
+                op: Op::Div,
+                args: vec![Num(6.0), Num(2.0)]
+              },
+              Apply {
+                op: Op::Mul,
+                args: vec![Num(15.0), Num(2.0)]
+              }
+            ]
+          }
+        ))
+      );
+
+      assert_eq!(
+        expr("6* 3"),
+        Ok((
+          "",
+          Apply {
+            op: Op::Mul,
+            args: vec![Num(6.0), Num(3.0)]
+          }
+        ))
+      );
+
+      assert_eq!(
+        expr("6 * 3 / 2"),
+        Ok((
+          "",
+          Apply {
+            op: Op::Div,
+            args: vec![
+              Apply {
+                op: Op::Mul,
+                args: vec![Num(6.0), Num(3.0)]
+              },
+              Num(2.0)
+            ]
           }
         ))
       );
@@ -126,9 +240,6 @@ mod parser {
 
     #[test]
     fn expr_parser_test() {
-      assert_eq!(num("12"), Ok(("", Num(12.0))));
-      assert_eq!(num("-12"), Ok(("", Num(-12.0))));
-      assert_eq!(num("65.98"), Ok(("", Num(65.98))));
       assert!(num("sdf").is_err());
 
       // TODO: Apply, strings
