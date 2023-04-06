@@ -35,21 +35,14 @@ pub enum Op {
 
 mod parser {
   use nom::branch::alt;
-  use nom::bytes::streaming::tag;
   use nom::character::complete::{char, space0};
   use nom::combinator::map;
-  use nom::multi::{self, fold_many0, fold_many1};
+  use nom::multi::fold_many1;
   use nom::number::complete::double;
-  use nom::sequence::{delimited, pair, Tuple};
+  use nom::sequence::{delimited, pair};
   use nom::IResult;
 
   use super::*;
-
-  type E<'a> = nom::error::Error<&'a str>;
-
-  fn num(input: &str) -> IResult<&str, Expr> {
-    map(delimited(space0, double, space0), |num| Expr::Num(num))(input)
-  }
 
   fn op_additive(input: &str) -> IResult<&str, Op> {
     let add = map(char('+'), |_| Op::Add);
@@ -65,21 +58,23 @@ mod parser {
     alt((mul, div))(input)
   }
 
-  fn op(input: &str) -> IResult<&str, Op> {
-    alt((op_additive, op_multiplicative))(input)
+  fn num(input: &str) -> IResult<&str, Expr> {
+    map(delimited(space0, double, space0), |num| Expr::Num(num))(input)
+  }
+
+  fn parens(input: &str) -> IResult<&str, Expr> {
+    delimited(space0, delimited(char('('), expr, char(')')), space0)(input)
   }
 
   /// Parses expressions like `x*y` and `x/y*z` into an `Expr::Apply`.
   fn multiplicative(input: &str) -> IResult<&str, Expr> {
     // takes the first term and keeps the rest in input
-    // TODO: replace with term (parens or num)
-    let (input, start) = num(input)?;
+    let (input, start) = alt((num, parens))(input)?;
 
     // for each successive application of `*x` or `/x`,
     // adds the corresponding tuple to the `ops` vector.
     let (rest, ops) = fold_many1(
-      // TODO: Replace num with term
-      pair(op_multiplicative, num),
+      pair(op_multiplicative, alt((num, parens))),
       Vec::new,
       |mut acc, (op, val)| {
         acc.push((op, val));
@@ -143,17 +138,6 @@ mod parser {
   mod tests {
     use super::*;
     use crate::expr::Expr::*;
-
-    #[test]
-    fn parse_op_test() {
-      assert_eq!(op("+"), Ok(("", Op::Add)));
-      assert_eq!(op("-"), Ok(("", Op::Sub)));
-      assert_eq!(op("*"), Ok(("", Op::Mul)));
-      assert_eq!(op("/"), Ok(("", Op::Div)));
-
-      assert_eq!(op("**"), Ok(("*", Op::Mul)));
-      assert!(op("_").is_err());
-    }
 
     #[test]
     fn parse_exr_test() {
@@ -236,13 +220,29 @@ mod parser {
           }
         ))
       );
-    }
 
-    #[test]
-    fn expr_parser_test() {
-      assert!(num("sdf").is_err());
-
-      // TODO: Apply, strings
+      assert_eq!(
+        expr("6 / (2 + 15) * 2"),
+        Ok((
+          "",
+          Apply {
+            op: Op::Mul,
+            args: vec![
+              Apply {
+                op: Op::Div,
+                args: vec![
+                  Num(6.0),
+                  Apply {
+                    op: Op::Add,
+                    args: vec![Num(2.0), Num(15.0)]
+                  }
+                ]
+              },
+              Num(2.0)
+            ]
+          }
+        ))
+      );
     }
   }
 }
