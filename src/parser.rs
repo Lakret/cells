@@ -16,14 +16,25 @@ enum Token {
   LeftParen,
 }
 
+fn lex(input: &str) -> impl Iterator<Item = &str> {
+  input.split_ascii_whitespace().flat_map(|lexem| {
+    if lexem.starts_with('(') {
+      vec!["(", lexem.trim_start_matches('(')]
+    } else if lexem.ends_with(')') {
+      vec![lexem.trim_end_matches(')'), ")"]
+    } else {
+      vec![lexem]
+    }
+  })
+}
+
 fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
   let mut output = VecDeque::new();
   let mut ops = Vec::new();
 
-  for lexem in input.split_ascii_whitespace() {
+  for lexem in lex(input) {
     if let Ok(num) = lexem.parse::<f64>() {
       output.push_back(Token::Num(num));
-
       continue;
     }
 
@@ -37,8 +48,7 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
           }
           Token::Op(top_stack_op_inner) => {
             // push operators with greater precedence
-            // or same precedence, but when the current operator is left-associative,
-            // to the output
+            // or same precedence, but when the current operator is left-associative, to the output
             if top_stack_op_inner.precedence() > op.precedence()
               || (op.is_left_associative() && top_stack_op_inner.precedence() == op.precedence())
             {
@@ -56,6 +66,7 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
         }
       }
 
+      ops.push(Token::Op(op));
       continue;
     }
 
@@ -88,14 +99,41 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::expr::Expr::*;
-  use crate::expr::Op::*;
+  // use crate::expr::Expr::*;
+  // use crate::expr::Op::*;
 
   #[test]
   fn shunting_yard_test() {
+    use crate::expr::Op::*;
+    use Token::*;
+
     assert_eq!(
-      shunting_yard("12 + 5 ^ 3 - 8 / 3.5 * 2").unwrap(),
-      VecDeque::new()
+      shunting_yard("12 + 5 ^ 3").unwrap(),
+      VecDeque::from(vec![Num(12.0), Num(5.0), Num(3.0), Op(Pow), Op(Add)])
+    );
+
+    assert_eq!(
+      shunting_yard("12 + 5 ^ 3 - 8 / 2 * 3.5 + 6.5").unwrap(),
+      VecDeque::from(vec![
+        Num(12.0),
+        Num(5.0),
+        Num(3.0),
+        Op(Pow),
+        Op(Add),
+        Num(8.0),
+        Num(2.0),
+        Op(Div),
+        Num(3.5),
+        Op(Mul),
+        Op(Sub),
+        Num(6.5),
+        Op(Add)
+      ])
+    );
+
+    assert_eq!(
+      shunting_yard("(12 + 5) ^ 3").unwrap(),
+      VecDeque::from(vec![Num(12.0), Num(5.0), Op(Add), Num(3.0), Op(Pow)])
     );
   }
 
