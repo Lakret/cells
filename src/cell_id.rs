@@ -56,7 +56,6 @@ impl TryFrom<&str> for CellId {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use Expr::*;
 
   #[test]
   fn cell_id_test() {
