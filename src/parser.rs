@@ -14,7 +14,6 @@ enum Token {
   Op(Op),
   Num(f64),
   LeftParen,
-  RightParen,
 }
 
 fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
@@ -23,7 +22,9 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
 
   for lexem in input.split_ascii_whitespace() {
     if let Ok(num) = lexem.parse::<f64>() {
-      output.push_back(Token::Num(num))
+      output.push_back(Token::Num(num));
+
+      continue;
     }
 
     if let Ok(op) = Op::try_from(lexem) {
@@ -54,6 +55,8 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
           }
         }
       }
+
+      continue;
     }
 
     match lexem {
