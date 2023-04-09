@@ -67,7 +67,11 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
               break;
             }
           }
-          _ => return Err(format!("impossible token `{top_stack_op:?}` found on the operator stack").into()),
+          _ => {
+            return Err(
+              format!("impossible token `{top_stack_op:?}` found on the operator stack").into(),
+            )
+          }
         }
       }
 
@@ -101,15 +105,42 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
   Ok(output)
 }
 
+fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, Box<dyn Error>> {
+  let empty_stack_op_msg = "empty stack when trying to build operator's AST";
+  let mut stack = vec![];
+
+  for token in tokens {
+    match token {
+      Token::Num(num) => stack.push(Expr::Num(*num)),
+      Token::Op(op) => {
+        let right = stack.pop().ok_or(empty_stack_op_msg)?;
+        let left = stack.pop().ok_or(empty_stack_op_msg)?;
+        let op = Expr::Apply {
+          op: *op,
+          args: vec![left, right],
+        };
+        stack.push(op);
+      }
+      Token::LeftParen => {
+        return Err("encountered left parenthesis in the shunting yard output".into())
+      }
+    }
+  }
+
+  match stack.pop() {
+    Some(expr) => Ok(expr),
+    None => Err("empty stack encountered when building AST".into()),
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
-  // use crate::expr::Expr::*;
-  // use crate::expr::Op::*;
+  use crate::expr::Expr;
+  use crate::expr::Op::*;
 
   #[test]
   fn shunting_yard_test() {
-    use crate::expr::Op::*;
     use Token::*;
 
     assert_eq!(
@@ -180,6 +211,32 @@ mod tests {
         .to_string(),
       "mismatched parenthesis"
     );
+  }
+
+  #[test]
+  fn to_ast_test() {
+    assert_eq!(
+      to_ast(&VecDeque::from(vec![
+        Token::Num(12.0),
+        Token::Num(5.0),
+        Token::Num(3.0),
+        Token::Op(Pow),
+        Token::Op(Add)
+      ]))
+      .unwrap(),
+      Expr::Apply {
+        op: Add,
+        args: vec![
+          Expr::Num(12.0),
+          Expr::Apply {
+            op: Pow,
+            args: vec![Expr::Num(5.0), Expr::Num(3.0)]
+          }
+        ]
+      }
+    );
+
+    // TODO:
   }
 
   // #[test]

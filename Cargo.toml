@@ -7,4 +7,3 @@ edition = "2021"
 yew = { version = "0.20.0", features = ["csr"] }
 web-sys = "*"
 wasm-bindgen = "*"
-nom = "^7.1"
