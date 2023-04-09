@@ -67,7 +67,7 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
           None => return Err("mismatched parenthesis".into()),
         }
       },
-      _ => return Err(format!("not a valid expression: {input}").into()),
+      unknown_lexem => return Err(format!("unknown lexem `{unknown_lexem}` in `{input}`").into()),
     }
   }
 
@@ -87,6 +87,14 @@ mod tests {
   use super::*;
   use crate::expr::Expr::*;
   use crate::expr::Op::*;
+
+  #[test]
+  fn shunting_yard_test() {
+    assert_eq!(
+      shunting_yard("12 + 5 ^ 3 - 8 / 3.5 * 2").unwrap(),
+      VecDeque::new()
+    );
+  }
 
   // #[test]
   // fn parse_test() {
