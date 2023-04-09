@@ -18,13 +18,22 @@ enum Token {
 
 fn lex(input: &str) -> impl Iterator<Item = &str> {
   input.split_ascii_whitespace().flat_map(|lexem| {
+    let mut lexem = lexem;
+    let mut lexems = vec![];
+
     if lexem.starts_with('(') {
-      vec!["(", lexem.trim_start_matches('(')]
-    } else if lexem.ends_with(')') {
-      vec![lexem.trim_end_matches(')'), ")"]
-    } else {
-      vec![lexem]
+      lexems.push("(");
+      lexem = lexem.trim_start_matches('(');
     }
+
+    if lexem.ends_with(')') {
+      lexems.push(lexem.trim_end_matches(')'));
+      lexems.push(")");
+    } else {
+      lexems.push(lexem);
+    }
+
+    lexems
   })
 }
 
@@ -58,11 +67,7 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
               break;
             }
           }
-          _ => {
-            return Err(
-              format!("impossible token `{top_stack_op:?}` found on the operator stack").into(),
-            )
-          }
+          _ => return Err(format!("impossible token `{top_stack_op:?}` found on the operator stack").into()),
         }
       }
 
@@ -134,6 +139,46 @@ mod tests {
     assert_eq!(
       shunting_yard("(12 + 5) ^ 3").unwrap(),
       VecDeque::from(vec![Num(12.0), Num(5.0), Op(Add), Num(3.0), Op(Pow)])
+    );
+
+    assert_eq!(
+      shunting_yard("12 + 5 ^ (3 - 8 / 2 * 3.5) + 6.5").unwrap(),
+      VecDeque::from(vec![
+        Num(12.0),
+        Num(5.0),
+        Num(3.0),
+        Num(8.0),
+        Num(2.0),
+        Op(Div),
+        Num(3.5),
+        Op(Mul),
+        Op(Sub),
+        Op(Pow),
+        Op(Add),
+        Num(6.5),
+        Op(Add)
+      ])
+    );
+
+    assert_eq!(
+      shunting_yard("12 + 5 ^ (3 - 8 / 2 * 3.5 + 6.5")
+        .unwrap_err()
+        .to_string(),
+      "mismatched parenthesis"
+    );
+
+    assert_eq!(
+      shunting_yard("12 + 5 ^ (3 - 8 / 2 * (3.5) + 6.5")
+        .unwrap_err()
+        .to_string(),
+      "mismatched parenthesis"
+    );
+
+    assert_eq!(
+      shunting_yard("12 + 5 ^ 3 - 8 / 2 * 3.5) + 6.5")
+        .unwrap_err()
+        .to_string(),
+      "mismatched parenthesis"
     );
   }
 
