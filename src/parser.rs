@@ -4,9 +4,14 @@ use std::error::Error;
 use crate::cell_id::CellId;
 use crate::expr::{Expr, Op};
 
-// TODO: cell refs and strings
+// TODO: cell refs
 pub fn parse(input: &str) -> Result<Expr, String> {
-  todo!()
+  if input.trim().starts_with('=') {
+    let tokens = shunting_yard(input.trim().trim_start_matches('='))?;
+    to_ast(&tokens)
+  } else {
+    Ok(Expr::Str(input.into()))
+  }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -37,7 +42,7 @@ fn lex(input: &str) -> impl Iterator<Item = &str> {
   })
 }
 
-fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
+fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
   let mut output = VecDeque::new();
   let mut ops = Vec::new();
 
@@ -105,7 +110,7 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, Box<dyn Error>> {
   Ok(output)
 }
 
-fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, Box<dyn Error>> {
+fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
   let empty_stack_op_msg = "empty stack when trying to build operator's AST";
   let mut stack = vec![];
 
@@ -235,195 +240,89 @@ mod tests {
         ]
       }
     );
-
-    // TODO:
   }
 
-  // #[test]
-  // fn parse_test() {
-  //   assert_eq!(parse("=12"), Ok(Num(12.)));
-  //   assert_eq!(parse("=12.2"), Ok(Num(12.2)));
-  //   assert_eq!(parse("= -12.2"), Ok(Num(-12.2)));
+  #[test]
+  fn parse_test() {
+    use Expr::*;
 
-  //   assert_eq!(
-  //     parse("= -12.2 * 4"),
-  //     Ok(Apply {
-  //       op: Mul,
-  //       args: vec![Num(-12.2), Num(4.0)]
-  //     })
-  //   );
+    assert_eq!(parse("=12"), Ok(Num(12.)));
+    assert_eq!(parse("=12.2"), Ok(Num(12.2)));
+    assert_eq!(parse("= -12.2"), Ok(Num(-12.2)));
 
-  //   assert_eq!(
-  //     parse("= -12.2 - 5"),
-  //     Ok(Apply {
-  //       op: Sub,
-  //       args: vec![Num(-12.2), Num(5.0)]
-  //     })
-  //   );
+    assert_eq!(
+      parse("= -12.2 * 4"),
+      Ok(Apply {
+        op: Mul,
+        args: vec![Num(-12.2), Num(4.0)]
+      })
+    );
 
-  //   assert_eq!(
-  //     parse("= 12.2 + 5"),
-  //     Ok(Apply {
-  //       op: Add,
-  //       args: vec![Num(12.2), Num(5.0)]
-  //     })
-  //   );
+    assert_eq!(
+      parse("= -12.2 - 5"),
+      Ok(Apply {
+        op: Sub,
+        args: vec![Num(-12.2), Num(5.0)]
+      })
+    );
 
-  //   assert_eq!(
-  //     parse("= 12.2 + 5 / -8.12"),
-  //     Ok(Apply {
-  //       op: Add,
-  //       args: vec![
-  //         Num(12.2),
-  //         Apply {
-  //           op: Div,
-  //           args: vec![Num(5.0), Num(-8.12)]
-  //         }
-  //       ]
-  //     })
-  //   );
+    assert_eq!(
+      parse("= 12.2 + 5"),
+      Ok(Apply {
+        op: Add,
+        args: vec![Num(12.2), Num(5.0)]
+      })
+    );
 
-  //   assert_eq!(
-  //     parse("=8*12.2*3 + 5 / (-8.12+89.8-8)"),
-  //     Ok(Apply {
-  //       op: Add,
-  //       args: vec![
-  //         Apply {
-  //           op: Mul,
-  //           args: vec![
-  //             Apply {
-  //               op: Mul,
-  //               args: vec![Num(8.0), Num(12.2)]
-  //             },
-  //             Num(3.0)
-  //           ]
-  //         },
-  //         Apply {
-  //           op: Div,
-  //           args: vec![
-  //             Num(5.0),
-  //             Apply {
-  //               op: Sub,
-  //               args: vec![
-  //                 Apply {
-  //                   op: Add,
-  //                   args: vec![Num(-8.12), Num(89.8)]
-  //                 },
-  //                 Num(8.0)
-  //               ]
-  //             }
-  //           ]
-  //         }
-  //       ]
-  //     })
-  //   );
-  // }
+    assert_eq!(
+      parse("= 12.2 + 5 / -8.12"),
+      Ok(Apply {
+        op: Add,
+        args: vec![
+          Num(12.2),
+          Apply {
+            op: Div,
+            args: vec![Num(5.0), Num(-8.12)]
+          }
+        ]
+      })
+    );
 
-  // #[test]
-  // fn parse_exr_test() {
-  //   assert_eq!(expr("12"), Ok(("", Num(12.0))));
-  //   assert_eq!(expr("-12"), Ok(("", Num(-12.0))));
-  //   assert_eq!(expr("65.98"), Ok(("", Num(65.98))));
-
-  //   assert_eq!(
-  //     expr("6+15"),
-  //     Ok((
-  //       "",
-  //       Apply {
-  //         op: Add,
-  //         args: vec![Num(6.0), Num(15.0)]
-  //       }
-  //     ))
-  //   );
-
-  //   assert_eq!(
-  //     expr("6/ 3.5 + 15"),
-  //     Ok((
-  //       "",
-  //       Apply {
-  //         op: Add,
-  //         args: vec![
-  //           Apply {
-  //             op: Div,
-  //             args: vec![Num(6.0), Num(3.5)]
-  //           },
-  //           Num(15.0)
-  //         ]
-  //       }
-  //     ))
-  //   );
-
-  //   assert_eq!(
-  //     expr("6 / 2 + 15 * 2"),
-  //     Ok((
-  //       "",
-  //       Apply {
-  //         op: Add,
-  //         args: vec![
-  //           Apply {
-  //             op: Div,
-  //             args: vec![Num(6.0), Num(2.0)]
-  //           },
-  //           Apply {
-  //             op: Mul,
-  //             args: vec![Num(15.0), Num(2.0)]
-  //           }
-  //         ]
-  //       }
-  //     ))
-  //   );
-
-  //   assert_eq!(
-  //     expr("6* 3"),
-  //     Ok((
-  //       "",
-  //       Apply {
-  //         op: Mul,
-  //         args: vec![Num(6.0), Num(3.0)]
-  //       }
-  //     ))
-  //   );
-
-  //   assert_eq!(
-  //     expr("6 * 3 / 2"),
-  //     Ok((
-  //       "",
-  //       Apply {
-  //         op: Div,
-  //         args: vec![
-  //           Apply {
-  //             op: Mul,
-  //             args: vec![Num(6.0), Num(3.0)]
-  //           },
-  //           Num(2.0)
-  //         ]
-  //       }
-  //     ))
-  //   );
-
-  //   assert_eq!(
-  //     expr("6 / (2 + 15) * 2"),
-  //     Ok((
-  //       "",
-  //       Apply {
-  //         op: Mul,
-  //         args: vec![
-  //           Apply {
-  //             op: Div,
-  //             args: vec![
-  //               Num(6.0),
-  //               Apply {
-  //                 op: Add,
-  //                 args: vec![Num(2.0), Num(15.0)]
-  //               }
-  //             ]
-  //           },
-  //           Num(2.0)
-  //         ]
-  //       }
-  //     ))
-  //   );
-  // }
+    assert_eq!(
+      parse("=8*12.2*3 + 5 / (-8.12+89.8-8)"),
+      Ok(Apply {
+        op: Add,
+        args: vec![
+          Apply {
+            op: Mul,
+            args: vec![
+              Apply {
+                op: Mul,
+                args: vec![Num(8.0), Num(12.2)]
+              },
+              Num(3.0)
+            ]
+          },
+          Apply {
+            op: Div,
+            args: vec![
+              Num(5.0),
+              Apply {
+                op: Sub,
+                args: vec![
+                  Apply {
+                    op: Add,
+                    args: vec![Num(-8.12), Num(89.8)]
+                  },
+                  Num(8.0)
+                ]
+              }
+            ]
+          }
+        ]
+      })
+    );
+  }
 
   // #[test]
   // fn parse_cell_ref_test() {
