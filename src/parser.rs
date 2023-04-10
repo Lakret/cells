@@ -21,6 +21,9 @@ enum Token {
   LeftParen,
 }
 
+// TODO: negative numbers:
+// post-lex processing OR support in the shunting yard?
+
 fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
   let mut output = VecDeque::new();
   let mut ops = Vec::new();
@@ -124,31 +127,20 @@ lazy_static! {
 fn lex(input: &str) -> Vec<&str> {
   let mut res = vec![];
   let mut start_pos = 0;
-  let mut minus_mode = false;
   let mut num_mode = false;
 
   for (pos, ch) in input.chars().enumerate() {
     if ch.is_ascii_whitespace() {
-      if minus_mode || num_mode {
+      if num_mode {
         res.push(&input[start_pos..pos]);
-        minus_mode = false;
         num_mode = false;
       };
 
       start_pos = pos;
-    } else if ch == '-' {
+    } else if SEPARATORS.contains(&ch) {
       if num_mode {
         res.push(&input[start_pos..pos]);
         num_mode = false;
-      } else {
-        start_pos = pos;
-        minus_mode = true;
-      }
-    } else if SEPARATORS.contains(&ch) {
-      if minus_mode || num_mode {
-        res.push(&input[start_pos..pos]);
-        num_mode = false;
-        minus_mode = false;
       }
 
       start_pos = pos;
@@ -156,9 +148,7 @@ fn lex(input: &str) -> Vec<&str> {
     } else {
       if (ch.is_ascii_digit() || ch == '.') && !num_mode {
         num_mode = true;
-        if !minus_mode {
-          start_pos = pos;
-        }
+        start_pos = pos;
       }
     }
   }
@@ -319,6 +309,8 @@ mod tests {
         ]
       })
     );
+
+    dbg!(lex("=8*12.2*3 + 5 / (-8.12+89.8-8)"));
 
     assert_eq!(
       parse("=8*12.2*3 + 5 / (-8.12+89.8-8)"),
