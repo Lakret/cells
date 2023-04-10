@@ -1,5 +1,5 @@
+use std::collections::HashSet;
 use std::collections::VecDeque;
-use std::error::Error;
 
 use crate::cell_id::CellId;
 use crate::expr::{Expr, Op};
@@ -21,25 +21,44 @@ enum Token {
   LeftParen,
 }
 
-fn lex(input: &str) -> impl Iterator<Item = &str> {
-  input.split_ascii_whitespace().flat_map(|lexem| {
-    let mut lexem = lexem;
-    let mut lexems = vec![];
+lazy_static! {
+  static ref SEPARATORS: HashSet<char> = HashSet::from(['+', '-', '*', '/', '^', '(', ')']);
+}
 
-    if lexem.starts_with('(') {
-      lexems.push("(");
-      lexem = lexem.trim_start_matches('(');
-    }
+fn lex(input: &str) -> Vec<&str> {
+  let mut res = vec![];
+  let mut start_pos = 0;
+  let mut num_mode = false;
 
-    if lexem.ends_with(')') {
-      lexems.push(lexem.trim_end_matches(')'));
-      lexems.push(")");
+  for (pos, ch) in input.chars().enumerate() {
+    if ch.is_ascii_whitespace() {
+      if num_mode {
+        res.push(&input[start_pos..pos]);
+        num_mode = false;
+      }
+
+      start_pos = pos;
+    } else if SEPARATORS.contains(&ch) {
+      if num_mode {
+        res.push(&input[start_pos..pos]);
+        num_mode = false;
+      }
+
+      start_pos = pos;
+      res.push(&input[pos..=pos]);
     } else {
-      lexems.push(lexem);
+      if (ch.is_ascii_digit() || ch == '.') && !num_mode {
+        num_mode = true;
+        start_pos = pos;
+      }
     }
+  }
 
-    lexems
-  })
+  if num_mode {
+    res.push(&input[start_pos..input.len()]);
+  }
+
+  res
 }
 
 fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {

@@ -1,5 +1,8 @@
 use yew::prelude::*;
 
+#[macro_use]
+extern crate lazy_static;
+
 mod cell_id;
 mod expr;
 mod parser;
