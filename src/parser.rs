@@ -23,6 +23,11 @@ enum Token {
 
 // TODO: negative numbers:
 // post-lex processing OR support in the shunting yard?
+// or use regex for lexing?
+//
+// expr = "3 * 4/5-2 + (-28.5)"
+// r = r"\s*(?P<op>[*+\/()-])\s*"
+// [l for l in  re.split(r, expr) if l != '']
 
 fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
   let mut output = VecDeque::new();
