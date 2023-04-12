@@ -95,8 +95,6 @@ lazy_static! {
 }
 
 fn lex(input: &str) -> Vec<&str> {
-  let input = input.trim().trim_start_matches("=");
-
   let mut loc = 0;
   let mut res = vec![];
 
@@ -116,15 +114,26 @@ fn lex(input: &str) -> Vec<&str> {
   res
 }
 
+// process negative numbers by combining them with the preceding minus sign
+// in case this minus cannot be a binary operation
 fn unary_minus_to_negative_numbers(lexems: Vec<&str>) -> Vec<String> {
-  // process negative numbers by combining them with the preceding minus sign
-  // in case this minus cannot be a binary operation
-  if !lexems.is_empty() {
-    let mut res = vec![];
-    let mut preceded_by_minus = false;
+  let mut res = vec![];
+  let mut preceded_by_minus = false;
 
-    for (idx, window) in lexems.windows(3).enumerate() {
-      if let &[grandparent, parent, lexem] = window {
+  // TODO: doesn't work as expected, because windows doesn't return shorter windows
+  // at all :(
+  for (idx, window) in lexems.windows(3).enumerate() {
+    match window {
+      &[] => (),
+      &[lexem] => res.push(lexem.to_string()),
+      &["-", lexem] if lexem.parse::<f64>().is_ok() => {
+        res.push(format!("-{lexem}"));
+      }
+      &[lexem1, lexem2] => {
+        res.push(lexem1.to_string());
+        res.push(lexem2.to_string());
+      }
+      &[grandparent, parent, lexem] => {
         if idx == 0 {
           // process the first lexem
           preceded_by_minus = grandparent == "-";
@@ -157,12 +166,11 @@ fn unary_minus_to_negative_numbers(lexems: Vec<&str>) -> Vec<String> {
 
         preceded_by_minus = lexem == "-";
       }
+      _ => (),
     }
-
-    res
-  } else {
-    lexems.into_iter().map(|l| l.to_string()).collect()
   }
+
+  dbg!(res)
 }
 
 fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
