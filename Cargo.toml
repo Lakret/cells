@@ -8,3 +8,4 @@ yew = { version = "0.20.0", features = ["csr"] }
 web-sys = "*"
 wasm-bindgen = "*"
 lazy_static = "1.4"
+regex = "^1.7"

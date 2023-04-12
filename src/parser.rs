@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
@@ -21,25 +22,17 @@ enum Token {
   LeftParen,
 }
 
-// TODO: negative numbers:
-// post-lex processing OR support in the shunting yard?
-// or use regex for lexing?
-//
-// expr = "3 * 4/5-2 + (-28.5)"
-// r = r"\s*(?P<op>[*+\/()-])\s*"
-// [l for l in  re.split(r, expr) if l != '']
-
 fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
   let mut output = VecDeque::new();
   let mut ops = Vec::new();
 
-  for lexem in lex(input) {
+  for lexem in unary_minus_to_negative_numbers(lex(input)) {
     if let Ok(num) = lexem.parse::<f64>() {
       output.push_back(Token::Num(num));
       continue;
     }
 
-    if let Ok(op) = Op::try_from(lexem) {
+    if let Ok(op) = Op::try_from(lexem.as_str()) {
       while let Some(top_stack_op) = ops.pop() {
         match top_stack_op {
           // stop popping once a left parenthesis is encountered
@@ -71,7 +64,7 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
       continue;
     }
 
-    match lexem {
+    match lexem.as_str() {
       "(" => ops.push(Token::LeftParen),
       ")" => loop {
         match ops.pop() {
@@ -95,6 +88,81 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
   }
 
   Ok(output)
+}
+
+lazy_static! {
+  static ref SEP_RE: Regex = Regex::new(r"\s*(?P<op>[*+/()-])\s*").unwrap();
+}
+
+fn lex(input: &str) -> Vec<&str> {
+  let input = input.trim().trim_start_matches("=");
+
+  let mut loc = 0;
+  let mut res = vec![];
+
+  for sep in SEP_RE.find_iter(input) {
+    if sep.start() > loc {
+      res.push(&input[loc..sep.start()]);
+    }
+    loc = sep.end();
+
+    res.push(sep.as_str());
+  }
+
+  if loc < input.len() - 1 {
+    res.push(&input[loc..])
+  }
+
+  res
+}
+
+fn unary_minus_to_negative_numbers(lexems: Vec<&str>) -> Vec<String> {
+  // process negative numbers by combining them with the preceding minus sign
+  // in case this minus cannot be a binary operation
+  if !lexems.is_empty() {
+    let mut res = vec![];
+    let mut preceded_by_minus = false;
+
+    for (idx, window) in lexems.windows(3).enumerate() {
+      if let &[grandparent, parent, lexem] = window {
+        if idx == 0 {
+          // process the first lexem
+          preceded_by_minus = grandparent == "-";
+          if !preceded_by_minus {
+            res.push(grandparent.to_string());
+          }
+
+          // process the second lexem
+          if preceded_by_minus && parent.parse::<f64>().is_ok() {
+            res.push(format!("-{parent}"));
+          }
+          preceded_by_minus = parent == "-";
+        }
+
+        if preceded_by_minus {
+          // if preceded by minus, can be parsed as a number, and the grandparent is a separator,
+          // recognize as a negative number;
+          // otherwise, push both the minus and the lexem into the output
+          if lexem.parse::<f64>().is_ok() && SEP_RE.is_match(grandparent) {
+            res.push(format!("-{lexem}"))
+          } else {
+            res.push("-".to_string());
+            res.push(lexem.to_string());
+          }
+        } else {
+          if lexem != "-" {
+            res.push(lexem.to_string())
+          }
+        }
+
+        preceded_by_minus = lexem == "-";
+      }
+    }
+
+    res
+  } else {
+    lexems.into_iter().map(|l| l.to_string()).collect()
+  }
 }
 
 fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
@@ -123,46 +191,6 @@ fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
     Some(expr) => Ok(expr),
     None => Err("empty stack encountered when building AST".into()),
   }
-}
-
-lazy_static! {
-  static ref SEPARATORS: HashSet<char> = HashSet::from(['+', '-', '*', '/', '^', '(', ')']);
-}
-
-fn lex(input: &str) -> Vec<&str> {
-  let mut res = vec![];
-  let mut start_pos = 0;
-  let mut num_mode = false;
-
-  for (pos, ch) in input.chars().enumerate() {
-    if ch.is_ascii_whitespace() {
-      if num_mode {
-        res.push(&input[start_pos..pos]);
-        num_mode = false;
-      };
-
-      start_pos = pos;
-    } else if SEPARATORS.contains(&ch) {
-      if num_mode {
-        res.push(&input[start_pos..pos]);
-        num_mode = false;
-      }
-
-      start_pos = pos;
-      res.push(&input[pos..=pos]);
-    } else {
-      if (ch.is_ascii_digit() || ch == '.') && !num_mode {
-        num_mode = true;
-        start_pos = pos;
-      }
-    }
-  }
-
-  if num_mode {
-    res.push(&input[start_pos..input.len()]);
-  }
-
-  res
 }
 
 #[cfg(test)]
