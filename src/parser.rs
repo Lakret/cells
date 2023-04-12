@@ -111,7 +111,7 @@ fn lex(input: &str) -> Vec<&str> {
     res.push(&input[loc..])
   }
 
-  res
+  dbg!(res)
 }
 
 // process negative numbers by combining them with the preceding minus sign
