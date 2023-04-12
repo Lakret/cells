@@ -100,15 +100,15 @@ fn lex(input: &str) -> Vec<&str> {
 
   for sep in SEP_RE.find_iter(input) {
     if sep.start() > loc {
-      res.push(&input[loc..sep.start()]);
+      res.push(input[loc..sep.start()].trim());
     }
     loc = sep.end();
 
-    res.push(sep.as_str());
+    res.push(sep.as_str().trim());
   }
 
   if loc < input.len() - 1 {
-    res.push(&input[loc..])
+    res.push(&input[loc..].trim())
   }
 
   dbg!(res)
