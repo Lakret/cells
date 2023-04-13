@@ -91,7 +91,7 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
 }
 
 lazy_static! {
-  static ref SEP_RE: Regex = Regex::new(r"\s*(?P<op>[*+/()-])\s*").unwrap();
+  static ref SEP_RE: Regex = Regex::new(r"\s*(?P<op>[*+/()^-])\s*").unwrap();
 }
 
 fn lex(input: &str) -> Vec<&str> {
@@ -107,70 +107,73 @@ fn lex(input: &str) -> Vec<&str> {
     res.push(sep.as_str().trim());
   }
 
-  if loc < input.len() - 1 {
+  if loc < input.len() {
     res.push(&input[loc..].trim())
   }
 
-  dbg!(res)
+  res
 }
 
 // process negative numbers by combining them with the preceding minus sign
 // in case this minus cannot be a binary operation
 fn unary_minus_to_negative_numbers(lexems: Vec<&str>) -> Vec<String> {
-  let mut res = vec![];
-  let mut preceded_by_minus = false;
+  match &lexems[..] {
+    &[] => vec![],
+    &[lexem] => vec![lexem.to_string()],
+    &["-", lexem] => vec![format!("-{lexem}")],
+    &[lexem1, lexem2] => vec![lexem1.to_string(), lexem2.to_string()],
+    _ => {
+      let mut res = vec![];
+      let mut preceded_by_minus = false;
 
-  // TODO: doesn't work as expected, because windows doesn't return shorter windows
-  // at all :(
-  for (idx, window) in lexems.windows(3).enumerate() {
-    match window {
-      &[] => (),
-      &[lexem] => res.push(lexem.to_string()),
-      &["-", lexem] if lexem.parse::<f64>().is_ok() => {
-        res.push(format!("-{lexem}"));
-      }
-      &[lexem1, lexem2] => {
-        res.push(lexem1.to_string());
-        res.push(lexem2.to_string());
-      }
-      &[grandparent, parent, lexem] => {
-        if idx == 0 {
-          // process the first lexem
-          preceded_by_minus = grandparent == "-";
-          if !preceded_by_minus {
-            res.push(grandparent.to_string());
-          }
+      for (idx, window) in lexems.windows(3).enumerate() {
+        match window {
+          &[grandparent, parent, lexem] => {
+            if idx == 0 {
+              // process the first lexem
+              preceded_by_minus = grandparent == "-";
+              if !preceded_by_minus {
+                res.push(grandparent.to_string());
+              }
 
-          // process the second lexem
-          if preceded_by_minus && parent.parse::<f64>().is_ok() {
-            res.push(format!("-{parent}"));
+              // process the second lexem
+              if preceded_by_minus && parent.parse::<f64>().is_ok() {
+                res.push(format!("-{parent}"));
+              } else {
+                res.push(parent.to_string());
+              }
+              preceded_by_minus = parent == "-";
+            }
+
+            if preceded_by_minus {
+              // if preceded by minus, can be parsed as a number, and the grandparent is a separator,
+              // recognize as a negative number;
+              // otherwise, push both the minus and the lexem into the output
+              if lexem.parse::<f64>().is_ok() && SEP_RE.is_match(grandparent) {
+                res.push(format!("-{lexem}"))
+              } else {
+                res.push("-".to_string());
+                res.push(lexem.to_string());
+              }
+            } else {
+              if lexem != "-" {
+                res.push(lexem.to_string())
+              }
+            }
+
+            preceded_by_minus = lexem == "-";
           }
-          preceded_by_minus = parent == "-";
+          _ => (),
         }
-
-        if preceded_by_minus {
-          // if preceded by minus, can be parsed as a number, and the grandparent is a separator,
-          // recognize as a negative number;
-          // otherwise, push both the minus and the lexem into the output
-          if lexem.parse::<f64>().is_ok() && SEP_RE.is_match(grandparent) {
-            res.push(format!("-{lexem}"))
-          } else {
-            res.push("-".to_string());
-            res.push(lexem.to_string());
-          }
-        } else {
-          if lexem != "-" {
-            res.push(lexem.to_string())
-          }
-        }
-
-        preceded_by_minus = lexem == "-";
       }
-      _ => (),
+
+      if preceded_by_minus {
+        res.push("-".to_string());
+      }
+
+      res
     }
   }
-
-  dbg!(res)
 }
 
 fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
@@ -350,8 +353,6 @@ mod tests {
         ]
       })
     );
-
-    dbg!(lex("=8*12.2*3 + 5 / (-8.12+89.8-8)"));
 
     assert_eq!(
       parse("=8*12.2*3 + 5 / (-8.12+89.8-8)"),
