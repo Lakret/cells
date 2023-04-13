@@ -1,11 +1,10 @@
 use regex::Regex;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 
 use crate::cell_id::CellId;
 use crate::expr::{Expr, Op};
 
-// TODO: cell refs
+// TODO: -B1 unary negation for cells is still needed
 pub fn parse(input: &str) -> Result<Expr, String> {
   if input.trim().starts_with('=') {
     let tokens = shunting_yard(input.trim().trim_start_matches('='))?;
@@ -19,6 +18,7 @@ pub fn parse(input: &str) -> Result<Expr, String> {
 enum Token {
   Op(Op),
   Num(f64),
+  CellRef(CellId),
   LeftParen,
 }
 
@@ -75,7 +75,10 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
           None => return Err("mismatched parenthesis".into()),
         }
       },
-      unknown_lexem => return Err(format!("unknown lexem `{unknown_lexem}` in `{input}`").into()),
+      other => match CellId::try_from(other) {
+        Ok(cell_id) => output.push_back(Token::CellRef(cell_id)),
+        Err(_) => return Err(format!("unknown lexem `{other}` in `{input}`").into()),
+      },
     }
   }
 
@@ -183,6 +186,7 @@ fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
   for token in tokens {
     match token {
       Token::Num(num) => stack.push(Expr::Num(*num)),
+      Token::CellRef(cell_id) => stack.push(Expr::CellRef(*cell_id)),
       Token::Op(op) => {
         let right = stack.pop().ok_or(empty_stack_op_msg)?;
         let left = stack.pop().ok_or(empty_stack_op_msg)?;
@@ -206,6 +210,8 @@ fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
 
 #[cfg(test)]
 mod tests {
+  use std::cell::Cell;
+
   use super::*;
   use crate::expr::Expr;
   use crate::expr::Op::*;
@@ -388,23 +394,48 @@ mod tests {
         ]
       })
     );
+
+    assert_eq!(
+      parse("= 12.2 + A5"),
+      Ok(Apply {
+        op: Add,
+        args: vec![Num(12.2), CellRef(CellId { col: 'A', row: 5 })]
+      })
+    );
+
+    assert_eq!(
+      parse("=K12*12.2*3 + 5 / (-8.12+B5-8)"),
+      Ok(Apply {
+        op: Add,
+        args: vec![
+          Apply {
+            op: Mul,
+            args: vec![
+              Apply {
+                op: Mul,
+                args: vec![CellRef(CellId { col: 'K', row: 12 }), Num(12.2)]
+              },
+              Num(3.0)
+            ]
+          },
+          Apply {
+            op: Div,
+            args: vec![
+              Num(5.0),
+              Apply {
+                op: Sub,
+                args: vec![
+                  Apply {
+                    op: Add,
+                    args: vec![Num(-8.12), CellRef(CellId { col: 'B', row: 5 })]
+                  },
+                  Num(8.0)
+                ]
+              }
+            ]
+          }
+        ]
+      })
+    );
   }
-
-  // #[test]
-  // fn parse_cell_ref_test() {
-  //   assert_eq!(
-  //     cell_ref("A15"),
-  //     Ok(("", CellRef(CellId { col: 'A', row: 15 })))
-  //   );
-  //   assert_eq!(
-  //     cell_ref("Z20"),
-  //     Ok(("", CellRef(CellId { col: 'Z', row: 20 })))
-  //   );
-
-  //   assert!(cell_ref("AF20").is_err());
-  //   assert_eq!(
-  //     cell_ref("20"),
-  //     Ok(("", CellRef(CellId { col: 'Z', row: 20 })))
-  //   );
-  // }
 }
