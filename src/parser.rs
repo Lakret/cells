@@ -4,7 +4,8 @@ use std::collections::VecDeque;
 use crate::cell_id::CellId;
 use crate::expr::{Expr, Op};
 
-// TODO: -B1 unary negation for cells is still needed
+// TODO: -B1 unary negation for cells is still needed => use Neg for it
+// and maybe for the negative integers
 pub fn parse(input: &str) -> Result<Expr, String> {
   if input.trim().starts_with('=') {
     let tokens = shunting_yard(input.trim().trim_start_matches('='))?;

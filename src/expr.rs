@@ -13,6 +13,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Op {
+  Neg,
   Add,
   Sub,
   Mul,
@@ -26,6 +27,7 @@ impl Op {
       Add | Sub => 1,
       Mul | Div => 2,
       Pow => 3,
+      Neg => 4,
     }
   }
 
