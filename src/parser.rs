@@ -181,8 +181,6 @@ fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
 
 #[cfg(test)]
 mod tests {
-  use std::cell::Cell;
-
   use super::*;
   use crate::expr::Expr;
   use crate::expr::Op::*;

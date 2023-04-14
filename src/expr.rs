@@ -1,24 +1,7 @@
+use std::{collections::HashMap, error::Error};
+
 use crate::cell_id::CellId;
 use Op::*;
-
-// TODO: (to_evaluate: HashMap<CellId, Expr>) => (deps: HashMap<CellId, Vec<CellId>>)
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
-  Str(String),
-  Num(f64),
-  CellRef(CellId),
-  Apply { op: Op, args: Vec<Expr> },
-}
-
-impl Expr {
-  pub fn is_value(&self) -> bool {
-    match self {
-      Expr::Num(_) | Expr::CellRef(_) => true,
-      _ => false,
-    }
-  }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Op {
@@ -56,5 +39,40 @@ impl TryFrom<&str> for Op {
       "^" => Ok(Pow),
       _ => Err(format!("`{value}` is not a valid operator.")),
     }
+  }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expr {
+  Str(String),
+  Num(f64),
+  CellRef(CellId),
+  Apply { op: Op, args: Vec<Expr> },
+}
+
+impl Expr {
+  /// Returns a vector of `CellId`s which need to be evaluated before this expression
+  /// can be evaluated.
+  pub fn get_deps(&self) -> Vec<CellId> {
+    let mut deps = vec![];
+
+    let mut stack = vec![self];
+    while let Some(expr) = stack.pop() {
+      match expr {
+        Expr::Str(_) | Expr::Num(_) => (),
+        Expr::CellRef(cell_id) => deps.push(cell_id.clone()),
+        Expr::Apply { args, .. } => {
+          for arg in args {
+            stack.push(arg);
+          }
+        }
+      }
+    }
+
+    deps
+  }
+
+  pub fn eval(&self, ctx: &HashMap<CellId, f64>) -> Result<f64, Box<dyn Error>> {
+    todo!()
   }
 }
