@@ -11,6 +11,15 @@ pub enum Expr {
   Apply { op: Op, args: Vec<Expr> },
 }
 
+impl Expr {
+  pub fn is_value(&self) -> bool {
+    match self {
+      Expr::Num(_) | Expr::CellRef(_) => true,
+      _ => false,
+    }
+  }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Op {
   Neg,

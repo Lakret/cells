@@ -27,13 +27,13 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
   let mut output = VecDeque::new();
   let mut ops = Vec::new();
 
-  for lexem in unary_minus_to_negative_numbers(lex(input)) {
+  for lexem in lex(input) {
     if let Ok(num) = lexem.parse::<f64>() {
       output.push_back(Token::Num(num));
       continue;
     }
 
-    if let Ok(op) = Op::try_from(lexem.as_str()) {
+    if let Ok(op) = Op::try_from(lexem) {
       while let Some(top_stack_op) = ops.pop() {
         match top_stack_op {
           // stop popping once a left parenthesis is encountered
@@ -65,7 +65,7 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
       continue;
     }
 
-    match lexem.as_str() {
+    match lexem {
       "(" => ops.push(Token::LeftParen),
       ")" => loop {
         match ops.pop() {
@@ -118,67 +118,67 @@ fn lex(input: &str) -> Vec<&str> {
   res
 }
 
-// process negative numbers by combining them with the preceding minus sign
-// in case this minus cannot be a binary operation
-fn unary_minus_to_negative_numbers(lexems: Vec<&str>) -> Vec<String> {
-  match &lexems[..] {
-    &[] => vec![],
-    &[lexem] => vec![lexem.to_string()],
-    &["-", lexem] => vec![format!("-{lexem}")],
-    &[lexem1, lexem2] => vec![lexem1.to_string(), lexem2.to_string()],
-    _ => {
-      let mut res = vec![];
-      let mut preceded_by_minus = false;
+// // process negative numbers by combining them with the preceding minus sign
+// // in case this minus cannot be a binary operation
+// fn unary_minus_to_negative_numbers(lexems: Vec<&str>) -> Vec<String> {
+//   match &lexems[..] {
+//     &[] => vec![],
+//     &[lexem] => vec![lexem.to_string()],
+//     &["-", lexem] => vec![format!("-{lexem}")],
+//     &[lexem1, lexem2] => vec![lexem1.to_string(), lexem2.to_string()],
+//     _ => {
+//       let mut res = vec![];
+//       let mut preceded_by_minus = false;
 
-      for (idx, window) in lexems.windows(3).enumerate() {
-        match window {
-          &[grandparent, parent, lexem] => {
-            if idx == 0 {
-              // process the first lexem
-              preceded_by_minus = grandparent == "-";
-              if !preceded_by_minus {
-                res.push(grandparent.to_string());
-              }
+//       for (idx, window) in lexems.windows(3).enumerate() {
+//         match window {
+//           &[grandparent, parent, lexem] => {
+//             if idx == 0 {
+//               // process the first lexem
+//               preceded_by_minus = grandparent == "-";
+//               if !preceded_by_minus {
+//                 res.push(grandparent.to_string());
+//               }
 
-              // process the second lexem
-              if preceded_by_minus && parent.parse::<f64>().is_ok() {
-                res.push(format!("-{parent}"));
-              } else {
-                res.push(parent.to_string());
-              }
-              preceded_by_minus = parent == "-";
-            }
+//               // process the second lexem
+//               if preceded_by_minus && parent.parse::<f64>().is_ok() {
+//                 res.push(format!("-{parent}"));
+//               } else {
+//                 res.push(parent.to_string());
+//               }
+//               preceded_by_minus = parent == "-";
+//             }
 
-            if preceded_by_minus {
-              // if preceded by minus, can be parsed as a number, and the grandparent is a separator,
-              // recognize as a negative number;
-              // otherwise, push both the minus and the lexem into the output
-              if lexem.parse::<f64>().is_ok() && SEP_RE.is_match(grandparent) {
-                res.push(format!("-{lexem}"))
-              } else {
-                res.push("-".to_string());
-                res.push(lexem.to_string());
-              }
-            } else {
-              if lexem != "-" {
-                res.push(lexem.to_string())
-              }
-            }
+//             if preceded_by_minus {
+//               // if preceded by minus, can be parsed as a number, and the grandparent is a separator,
+//               // recognize as a negative number;
+//               // otherwise, push both the minus and the lexem into the output
+//               if lexem.parse::<f64>().is_ok() && SEP_RE.is_match(grandparent) {
+//                 res.push(format!("-{lexem}"))
+//               } else {
+//                 res.push("-".to_string());
+//                 res.push(lexem.to_string());
+//               }
+//             } else {
+//               if lexem != "-" {
+//                 res.push(lexem.to_string())
+//               }
+//             }
 
-            preceded_by_minus = lexem == "-";
-          }
-          _ => (),
-        }
-      }
+//             preceded_by_minus = lexem == "-";
+//           }
+//           _ => (),
+//         }
+//       }
 
-      if preceded_by_minus {
-        res.push("-".to_string());
-      }
+//       if preceded_by_minus {
+//         res.push("-".to_string());
+//       }
 
-      res
-    }
-  }
-}
+//       res
+//     }
+//   }
+// }
 
 fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
   let empty_stack_op_msg = "empty stack when trying to build operator's AST";
@@ -190,12 +190,26 @@ fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
       Token::CellRef(cell_id) => stack.push(Expr::CellRef(*cell_id)),
       Token::Op(op) => {
         let right = stack.pop().ok_or(empty_stack_op_msg)?;
-        let left = stack.pop().ok_or(empty_stack_op_msg)?;
-        let op = Expr::Apply {
-          op: *op,
-          args: vec![left, right],
-        };
-        stack.push(op);
+        let left = stack.pop();
+        if op == &Op::Sub && (left.is_none() || !left.clone().unwrap().is_value()) {
+          let op = Expr::Apply {
+            op: Op::Neg,
+            args: vec![right],
+          };
+
+          if let Some(left) = left {
+            stack.push(left);
+          }
+
+          stack.push(op);
+        } else {
+          let left = left.ok_or(empty_stack_op_msg)?;
+          let op = Expr::Apply {
+            op: *op,
+            args: vec![left, right],
+          };
+          stack.push(op);
+        }
       }
       Token::LeftParen => {
         return Err("encountered left parenthesis in the shunting yard output".into())
@@ -321,7 +335,13 @@ mod tests {
 
     assert_eq!(parse("=12"), Ok(Num(12.)));
     assert_eq!(parse("=12.2"), Ok(Num(12.2)));
-    assert_eq!(parse("= -12.2"), Ok(Num(-12.2)));
+    assert_eq!(
+      parse("= -12.2"),
+      Ok(Apply {
+        op: Neg,
+        args: vec![Num(12.2)]
+      })
+    );
 
     assert_eq!(
       parse("= -12.2 * 4"),
