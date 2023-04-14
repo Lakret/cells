@@ -182,3 +182,26 @@ pub fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Bo
     Err(format!("cycle detected between cells: {:?}", depends_on.keys()).into())
   }
 }
+
+#[cfg(test)]
+mod test {
+  use crate::parser::parse;
+
+  use super::*;
+  use Expr::*;
+
+  #[test]
+  fn topolotical_sort_test() {
+    let mut exprs = HashMap::new();
+    exprs.insert(
+      CellId { col: 'A', row: 1 },
+      parse("= (B1 / -C1 ^ 2) * 8").unwrap(),
+    );
+    exprs.insert(CellId { col: 'B', row: 1 }, Num(15.0));
+    exprs.insert(CellId { col: 'C', row: 1 }, Num(3.0));
+
+    let ordering = topological_sort(&exprs).unwrap();
+    assert_eq!(ordering.len(), 3);
+    assert_eq!(*ordering.last().unwrap(), CellId { col: 'A', row: 1 });
+  }
+}
