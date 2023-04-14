@@ -117,7 +117,7 @@ impl Expr {
   }
 }
 
-fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
+pub fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
   // maps cell_ids to a vector of cell_ids it depends on
   let mut depends_on: HashMap<_, HashSet<_>> = HashMap::new();
   // maps cell_ids to a vector of cell_ids depending on it
@@ -160,10 +160,25 @@ fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dy
   while let Some(cell_id) = no_deps.pop() {
     res.push(cell_id);
 
-    // for dependent in dependents {
-    //   todo!()
-    // }
+    if let Some(dependent_cell_ids) = dependents.get(&cell_id) {
+      for dependent_cell_id in dependent_cell_ids.iter() {
+        if let Some(depends_on_cell_ids) = depends_on.get_mut(dependent_cell_id) {
+          depends_on_cell_ids.remove(&cell_id);
+
+          if depends_on_cell_ids.is_empty() {
+            no_deps.push(*dependent_cell_id);
+
+            // we are removing resolved cell_ids from depends_on to be able to report cycles
+            depends_on.remove(dependent_cell_id);
+          }
+        }
+      }
+    }
   }
 
-  Ok(res)
+  if depends_on.is_empty() {
+    Ok(res)
+  } else {
+    Err(format!("cycle detected between cells: {:?}", depends_on.keys()).into())
+  }
 }
