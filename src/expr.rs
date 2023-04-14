@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, fmt::format};
 
 use crate::cell_id::CellId;
 use Op::*;
@@ -73,6 +73,42 @@ impl Expr {
   }
 
   pub fn eval(&self, ctx: &HashMap<CellId, f64>) -> Result<f64, Box<dyn Error>> {
-    todo!()
+    match self {
+      Expr::Num(num) => Ok(*num),
+      Expr::CellRef(cell_id) => ctx.get(cell_id).map(|v| *v).ok_or_else(|| {
+        format!("cannot resolve reference to {cell_id:?}")
+          .as_str()
+          .into()
+      }),
+      Expr::Apply { op, args } => match op {
+        Op::Neg => args[0].eval(ctx).map(|v| -v),
+        _ => {
+          let args = args
+            .iter()
+            .map(|arg| arg.eval(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+
+          if args.len() == 2 {
+            match op {
+              Add => Ok(args[0] + args[1]),
+              Sub => Ok(args[0] - args[1]),
+              Mul => Ok(args[0] * args[1]),
+              Div => Ok(args[0] / args[1]),
+              Pow => Ok(args[0].powf(args[1])),
+              _ => panic!(
+                "programming error: this cannot be reached, since Neg should be handled before"
+              ),
+            }
+          } else {
+            Err(
+              format!("binary operation {op:?} got incorrect number of arguments: {args:?}")
+                .as_str()
+                .into(),
+            )
+          }
+        }
+      },
+      Expr::Str(_) => Err("cannot evaluate strings".into()),
+    }
   }
 }
