@@ -4,8 +4,6 @@ use std::collections::VecDeque;
 use crate::cell_id::CellId;
 use crate::expr::{Expr, Op};
 
-// TODO: -B1 unary negation for cells is still needed => use Neg for it
-// and maybe for the negative integers
 pub fn parse(input: &str) -> Result<Expr, String> {
   if input.trim().starts_with('=') {
     let tokens = shunting_yard(input.trim().trim_start_matches('='))?;
@@ -27,13 +25,29 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
   let mut output = VecDeque::new();
   let mut ops = Vec::new();
 
+  // used to differentiate negation & subtraction
+  let mut prev_token = None;
   for lexem in lex(input) {
     if let Ok(num) = lexem.parse::<f64>() {
+      let token = Token::Num(num);
+      prev_token = Some(token);
       output.push_back(Token::Num(num));
       continue;
     }
 
     if let Ok(op) = Op::try_from(lexem) {
+      // convert Sub to Neg if it's:
+      // - the very start of the input (such as `-15` or `-B5`)
+      // - right after the left parenthesis or binary op token (such as `14 - (- 8)` - the 1st is Sub, the 2nd is Neg)
+      let is_negation = op == Op::Sub
+        && match prev_token {
+          None => true,
+          Some(Token::Op(op)) if op != Op::Neg => true,
+          Some(Token::LeftParen) => true,
+          Some(_) => false,
+        };
+      let op = if is_negation { Op::Neg } else { op };
+
       while let Some(top_stack_op) = ops.pop() {
         match top_stack_op {
           // stop popping once a left parenthesis is encountered
@@ -61,12 +75,18 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
         }
       }
 
-      ops.push(Token::Op(op));
+      let token = Token::Op(op);
+      prev_token = Some(token);
+      ops.push(token);
       continue;
     }
 
     match lexem {
-      "(" => ops.push(Token::LeftParen),
+      "(" => {
+        let token = Token::LeftParen;
+        prev_token = Some(token);
+        ops.push(token);
+      }
       ")" => loop {
         match ops.pop() {
           Some(top_stack_op) => match top_stack_op {
@@ -77,7 +97,11 @@ fn shunting_yard(input: &str) -> Result<VecDeque<Token>, String> {
         }
       },
       other => match CellId::try_from(other) {
-        Ok(cell_id) => output.push_back(Token::CellRef(cell_id)),
+        Ok(cell_id) => {
+          let token = Token::CellRef(cell_id);
+          prev_token = Some(token);
+          output.push_back(token);
+        }
         Err(_) => return Err(format!("unknown lexem `{other}` in `{input}`").into()),
       },
     }
@@ -118,68 +142,6 @@ fn lex(input: &str) -> Vec<&str> {
   res
 }
 
-// // process negative numbers by combining them with the preceding minus sign
-// // in case this minus cannot be a binary operation
-// fn unary_minus_to_negative_numbers(lexems: Vec<&str>) -> Vec<String> {
-//   match &lexems[..] {
-//     &[] => vec![],
-//     &[lexem] => vec![lexem.to_string()],
-//     &["-", lexem] => vec![format!("-{lexem}")],
-//     &[lexem1, lexem2] => vec![lexem1.to_string(), lexem2.to_string()],
-//     _ => {
-//       let mut res = vec![];
-//       let mut preceded_by_minus = false;
-
-//       for (idx, window) in lexems.windows(3).enumerate() {
-//         match window {
-//           &[grandparent, parent, lexem] => {
-//             if idx == 0 {
-//               // process the first lexem
-//               preceded_by_minus = grandparent == "-";
-//               if !preceded_by_minus {
-//                 res.push(grandparent.to_string());
-//               }
-
-//               // process the second lexem
-//               if preceded_by_minus && parent.parse::<f64>().is_ok() {
-//                 res.push(format!("-{parent}"));
-//               } else {
-//                 res.push(parent.to_string());
-//               }
-//               preceded_by_minus = parent == "-";
-//             }
-
-//             if preceded_by_minus {
-//               // if preceded by minus, can be parsed as a number, and the grandparent is a separator,
-//               // recognize as a negative number;
-//               // otherwise, push both the minus and the lexem into the output
-//               if lexem.parse::<f64>().is_ok() && SEP_RE.is_match(grandparent) {
-//                 res.push(format!("-{lexem}"))
-//               } else {
-//                 res.push("-".to_string());
-//                 res.push(lexem.to_string());
-//               }
-//             } else {
-//               if lexem != "-" {
-//                 res.push(lexem.to_string())
-//               }
-//             }
-
-//             preceded_by_minus = lexem == "-";
-//           }
-//           _ => (),
-//         }
-//       }
-
-//       if preceded_by_minus {
-//         res.push("-".to_string());
-//       }
-
-//       res
-//     }
-//   }
-// }
-
 fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
   let empty_stack_op_msg = "empty stack when trying to build operator's AST";
   let mut stack = vec![];
@@ -188,28 +150,22 @@ fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
     match token {
       Token::Num(num) => stack.push(Expr::Num(*num)),
       Token::CellRef(cell_id) => stack.push(Expr::CellRef(*cell_id)),
+      Token::Op(Op::Neg) => {
+        let arg = stack.pop().ok_or(empty_stack_op_msg)?;
+        let op = Expr::Apply {
+          op: Op::Neg,
+          args: vec![arg],
+        };
+        stack.push(op);
+      }
       Token::Op(op) => {
         let right = stack.pop().ok_or(empty_stack_op_msg)?;
-        let left = stack.pop();
-        if op == &Op::Sub && (left.is_none() || !left.clone().unwrap().is_value()) {
-          let op = Expr::Apply {
-            op: Op::Neg,
-            args: vec![right],
-          };
-
-          if let Some(left) = left {
-            stack.push(left);
-          }
-
-          stack.push(op);
-        } else {
-          let left = left.ok_or(empty_stack_op_msg)?;
-          let op = Expr::Apply {
-            op: *op,
-            args: vec![left, right],
-          };
-          stack.push(op);
-        }
+        let left = stack.pop().ok_or(empty_stack_op_msg)?;
+        let op = Expr::Apply {
+          op: *op,
+          args: vec![left, right],
+        };
+        stack.push(op);
       }
       Token::LeftParen => {
         return Err("encountered left parenthesis in the shunting yard output".into())
@@ -347,7 +303,13 @@ mod tests {
       parse("= -12.2 * 4"),
       Ok(Apply {
         op: Mul,
-        args: vec![Num(-12.2), Num(4.0)]
+        args: vec![
+          Apply {
+            op: Neg,
+            args: vec![Num(12.2)]
+          },
+          Num(4.0)
+        ]
       })
     );
 
@@ -355,7 +317,13 @@ mod tests {
       parse("= -12.2 - 5"),
       Ok(Apply {
         op: Sub,
-        args: vec![Num(-12.2), Num(5.0)]
+        args: vec![
+          Apply {
+            op: Neg,
+            args: vec![Num(12.2)]
+          },
+          Num(5.0)
+        ]
       })
     );
 
@@ -375,7 +343,13 @@ mod tests {
           Num(12.2),
           Apply {
             op: Div,
-            args: vec![Num(5.0), Num(-8.12)]
+            args: vec![
+              Num(5.0),
+              Apply {
+                op: Neg,
+                args: vec![Num(8.12)]
+              }
+            ]
           }
         ]
       })
@@ -405,7 +379,13 @@ mod tests {
                 args: vec![
                   Apply {
                     op: Add,
-                    args: vec![Num(-8.12), Num(89.8)]
+                    args: vec![
+                      Apply {
+                        op: Neg,
+                        args: vec![Num(8.12)]
+                      },
+                      Num(89.8)
+                    ]
                   },
                   Num(8.0)
                 ]
@@ -448,7 +428,13 @@ mod tests {
                 args: vec![
                   Apply {
                     op: Add,
-                    args: vec![Num(-8.12), CellRef(CellId { col: 'B', row: 5 })]
+                    args: vec![
+                      Apply {
+                        op: Neg,
+                        args: vec![Num(8.12)]
+                      },
+                      CellRef(CellId { col: 'B', row: 5 })
+                    ]
                   },
                   Num(8.0)
                 ]

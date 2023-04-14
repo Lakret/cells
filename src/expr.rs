@@ -41,7 +41,7 @@ impl Op {
   }
 
   pub fn is_left_associative(&self) -> bool {
-    if *self != Pow {
+    if *self != Pow && *self != Neg {
       true
     } else {
       false
