@@ -35,17 +35,12 @@ impl Op {
     match &self {
       Add | Sub => 1,
       Mul | Div => 2,
-      Pow => 3,
-      Neg => 4,
+      Neg | Pow => 3,
     }
   }
 
   pub fn is_left_associative(&self) -> bool {
-    if *self != Pow && *self != Neg {
-      true
-    } else {
-      false
-    }
+    !(*self == Neg || *self == Pow)
   }
 }
 

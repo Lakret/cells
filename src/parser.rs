@@ -444,5 +444,49 @@ mod tests {
         ]
       })
     );
+
+    assert_eq!(
+      parse("= -C15 - -A5 - (-B5 - (-3.1415 + -C1))"),
+      Ok(Apply {
+        op: Sub,
+        args: vec![
+          Apply {
+            op: Sub,
+            args: vec![
+              Apply {
+                op: Neg,
+                args: vec![CellRef(CellId { col: 'C', row: 15 })]
+              },
+              Apply {
+                op: Neg,
+                args: vec![CellRef(CellId { col: 'A', row: 5 })]
+              }
+            ]
+          },
+          Apply {
+            op: Sub,
+            args: vec![
+              Apply {
+                op: Neg,
+                args: vec![CellRef(CellId { col: 'B', row: 5 })]
+              },
+              Apply {
+                op: Add,
+                args: vec![
+                  Apply {
+                    op: Neg,
+                    args: vec![Num(3.1415)]
+                  },
+                  Apply {
+                    op: Neg,
+                    args: vec![CellRef(CellId { col: 'C', row: 1 })]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      })
+    );
   }
 }
