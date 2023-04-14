@@ -1,4 +1,8 @@
-use std::{collections::HashMap, error::Error, fmt::format};
+use std::{
+  collections::{HashMap, HashSet},
+  error::Error,
+  fmt::format,
+};
 
 use crate::cell_id::CellId;
 use Op::*;
@@ -111,4 +115,55 @@ impl Expr {
       Expr::Str(_) => Err("cannot evaluate strings".into()),
     }
   }
+}
+
+fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
+  // maps cell_ids to a vector of cell_ids it depends on
+  let mut depends_on: HashMap<_, HashSet<_>> = HashMap::new();
+  // maps cell_ids to a vector of cell_ids depending on it
+  let mut dependents: HashMap<_, HashSet<_>> = HashMap::new();
+  let mut no_deps = vec![];
+
+  for (&cell_id, expr) in exprs.iter() {
+    let deps = expr.get_deps();
+
+    if deps.is_empty() {
+      no_deps.push(cell_id);
+    } else {
+      for dep_cell_id in deps {
+        depends_on
+          .entry(cell_id)
+          .and_modify(|dependencies| {
+            dependencies.insert(dep_cell_id);
+          })
+          .or_insert_with(|| {
+            let mut s = HashSet::new();
+            s.insert(dep_cell_id);
+            s
+          });
+
+        dependents
+          .entry(dep_cell_id)
+          .and_modify(|dependents| {
+            dependents.insert(cell_id);
+          })
+          .or_insert_with(|| {
+            let mut s = HashSet::new();
+            s.insert(cell_id);
+            s
+          });
+      }
+    }
+  }
+
+  let mut res = vec![];
+  while let Some(cell_id) = no_deps.pop() {
+    res.push(cell_id);
+
+    // for dependent in dependents {
+    //   todo!()
+    // }
+  }
+
+  Ok(res)
 }
