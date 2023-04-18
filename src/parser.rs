@@ -5,11 +5,15 @@ use crate::cell_id::CellId;
 use crate::expr::{Expr, Op};
 
 pub fn parse(input: &str) -> Result<Expr, String> {
-  if input.trim().starts_with('=') {
-    let tokens = shunting_yard(input.trim().trim_start_matches('='))?;
+  let input = input.trim();
+  if input.starts_with('=') {
+    let tokens = shunting_yard(input.trim_start_matches('='))?;
     to_ast(&tokens)
   } else {
-    Ok(Expr::Str(input.into()))
+    match input.parse::<f64>() {
+      Ok(n) => Ok(Expr::Num(n)),
+      Err(_) => Ok(Expr::Str(input.into())),
+    }
   }
 }
 
@@ -175,7 +179,7 @@ fn to_ast(tokens: &VecDeque<Token>) -> Result<Expr, String> {
 
   match stack.pop() {
     Some(expr) => Ok(expr),
-    None => Err("empty stack encountered when building AST".into()),
+    None => Err(format!("empty stack encountered when building AST for tokens {tokens:?}").into()),
   }
 }
 

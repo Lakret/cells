@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
+use web_sys::console::log_1;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::cell_id::CellId;
+use crate::expr::{eval, Expr};
+use crate::parser::parse;
 
 #[derive(Debug, PartialEq)]
 pub enum Msg {
@@ -17,8 +20,14 @@ pub enum Msg {
 pub struct Table {
   big_input_text: String,
   focused_cell: Option<CellId>,
-  values: HashMap<CellId, String>,
-  computed_values: HashMap<CellId, String>,
+  values: HashMap<CellId, CellContent>,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct CellContent {
+  input: String,
+  expr: Expr,
+  computed: Option<Expr>,
 }
 
 // TODO: cell reference insertion mode when cell is edited and starts with =
@@ -122,7 +131,6 @@ impl Component for Table {
                               <Cell
                                 {cell_id}
                                 value={ self.values.get(&cell_id).map(|v| v.clone()) }
-                                computed_value={ self.computed_values.get(&cell_id).map(|v| v.clone()) }
                                 onfocus={
                                   ctx.link().callback(move |ev: FocusEvent| {
                                     let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
@@ -172,12 +180,29 @@ impl Component for Table {
         self.big_input_text = String::from("");
         true
       }
+      // TODO: weird bug with last letter being missing
       Msg::CellChanged { cell_id, new_value } => {
-        self.values.insert(cell_id, new_value.clone());
-        // TODO: actual computation
-        // self
-        //   .computed_values
-        //   .insert(cell_id, format!("COMP{}", new_value));
+        // TODO: what to do with errors?
+        let expr = parse(&new_value).unwrap_or_else(|_err| Expr::Str(new_value.clone()));
+        // TODO: this is inefficient, since we both create a new computed hashmap and recompute everything
+        // we probably can live with the recomputation, but building the computed hashmap every time is annoying
+        let computed = eval(
+          &self
+            .values
+            .iter()
+            .map(|(&k, v)| (k, v.clone().expr))
+            .collect(),
+        )
+        .unwrap();
+
+        log_1(&JsValue::from_str(&format!("{computed:?}")));
+
+        let content = CellContent {
+          input: new_value.clone(),
+          expr: expr,
+          computed: computed.get(&cell_id).map(|computed| computed.clone()),
+        };
+        self.values.insert(cell_id, content);
         self.big_input_text = new_value;
         true
       }
@@ -188,8 +213,7 @@ impl Component for Table {
 #[derive(PartialEq, Properties)]
 pub struct CellProps {
   pub cell_id: CellId,
-  pub value: Option<String>,
-  pub computed_value: Option<String>,
+  pub value: Option<CellContent>,
   pub onfocus: Callback<FocusEvent>,
   pub onfocusout: Callback<FocusEvent>,
   pub oninput: Callback<InputEvent>,
@@ -248,7 +272,26 @@ fn Cell(props: &CellProps) -> Html {
   };
 
   // if `computed_value` is present, show it in the div cell, otherwise show `value`
-  let div_value = props.computed_value.clone().or(props.value.clone());
+  // TODO: check vs old logic props.computed_value.clone().or(props.value.clone());
+  let div_value = props.value.clone().map(|content| match content.computed {
+    Some(Expr::Num(n)) => n.to_string(),
+    Some(Expr::Str(s)) => s.clone(),
+    _ => content.input,
+  });
+
+  log_1(&JsValue::from_str(&format!(
+    "div_value: {:?}, input_value: {:?}",
+    &div_value,
+    props.value.clone().map(|v| v.input)
+  )));
+
+  let input_value = props
+    .value
+    .clone()
+    .map_or_else(|| String::new(), |content| content.input);
+
+  // TODO:
+  // log_1(&JsValue::from_str(&format!("input_value: {input_value:?}")));
 
   // note that the div gets a tabindex to allow focus & keyboard events;
   // `input_ref` is used to focus the input
@@ -264,7 +307,7 @@ fn Cell(props: &CellProps) -> Html {
             "border-collapse border-[1px] border-indigo-900 bg-indigo-800 font-mono",
             if *input_mode { "z-10" } else { "z-0 select-none" }
           ])}
-          value={ props.value.clone() }
+          value={ input_value }
           onfocus={ props.onfocus.clone() }
           oninput={ props.oninput.clone() }
           onfocusout={ input_onfocusout  }

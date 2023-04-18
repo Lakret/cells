@@ -53,6 +53,12 @@ pub enum Expr {
   Apply { op: Op, args: Vec<Expr> },
 }
 
+impl Default for Expr {
+  fn default() -> Self {
+    Expr::Str(String::new())
+  }
+}
+
 impl Expr {
   /// Returns a vector of `CellId`s which need to be evaluated before this expression
   /// can be evaluated.
@@ -257,5 +263,10 @@ mod test {
       (CellId { col: 'C', row: 1 }, 0.2187456),
     ]);
     assert_eq!(expr.eval(&ctx).unwrap(), -484.33364550000005);
+  }
+
+  #[test]
+  fn eval_test() {
+    // TODO:
   }
 }
