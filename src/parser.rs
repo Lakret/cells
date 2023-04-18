@@ -5,12 +5,11 @@ use crate::cell_id::CellId;
 use crate::expr::{Expr, Op};
 
 pub fn parse(input: &str) -> Result<Expr, String> {
-  let input = input.trim();
-  if input.starts_with('=') {
-    let tokens = shunting_yard(input.trim_start_matches('='))?;
+  if input.trim().starts_with('=') {
+    let tokens = shunting_yard(input.trim().trim_start_matches('='))?;
     to_ast(&tokens)
   } else {
-    match input.parse::<f64>() {
+    match input.trim().parse::<f64>() {
       Ok(n) => Ok(Expr::Num(n)),
       Err(_) => Ok(Expr::Str(input.into())),
     }
