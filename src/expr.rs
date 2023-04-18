@@ -1,7 +1,6 @@
 use std::{
   collections::{HashMap, HashSet},
   error::Error,
-  fmt::format,
 };
 
 use crate::cell_id::CellId;
@@ -117,7 +116,49 @@ impl Expr {
   }
 }
 
-pub fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
+/// Evaluates a parsed cell_id -> expr map, returning a map cell_id -> expr,
+/// in which expressions will be replaced by their computed values where possible
+pub fn eval(exprs: &HashMap<CellId, Expr>) -> Result<HashMap<CellId, Expr>, Box<dyn Error>> {
+  let mut values = HashMap::new();
+  let mut computed = HashMap::new();
+
+  for cell_id in topological_sort(exprs)? {
+    if let Some(expr) = exprs.get(&cell_id) {
+      match expr {
+        Expr::Str(_) => {
+          computed.insert(cell_id, expr.clone());
+        }
+        Expr::Num(n) => {
+          values.insert(cell_id, *n);
+          computed.insert(cell_id, expr.clone());
+        }
+        Expr::CellRef(another_cell_id) => {
+          if let Some(another_value) = values.get(another_cell_id) {
+            values.insert(cell_id, *another_value);
+          }
+
+          if let Some(another_computed) = computed.get(another_cell_id) {
+            computed.insert(cell_id, another_computed.clone());
+          } else {
+            return Err(
+              format!("reference to an empty cell {another_cell_id} in cell {cell_id}").into(),
+            );
+          }
+        }
+        Expr::Apply { .. } => {
+          // TODO: add reference to cell_id in the error message
+          let value = expr.eval(&values)?;
+          values.insert(cell_id, value);
+          computed.insert(cell_id, Expr::Num(value));
+        }
+      }
+    }
+  }
+
+  Ok(computed)
+}
+
+fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
   // maps cell_ids to a vector of cell_ids it depends on
   let mut depends_on: HashMap<_, HashSet<_>> = HashMap::new();
   // maps cell_ids to a vector of cell_ids depending on it
@@ -203,5 +244,18 @@ mod test {
     let ordering = topological_sort(&exprs).unwrap();
     assert_eq!(ordering.len(), 3);
     assert_eq!(*ordering.last().unwrap(), CellId { col: 'A', row: 1 });
+  }
+
+  #[test]
+  fn expr_eval_test() {
+    let expr = parse("= A1 - (A2 - A3 ^ B1 / 2.5) + C1").unwrap();
+    let ctx = HashMap::from_iter(vec![
+      (CellId { col: 'A', row: 1 }, 12.0),
+      (CellId { col: 'A', row: 2 }, 500.5),
+      (CellId { col: 'A', row: 3 }, -3.1415),
+      (CellId { col: 'B', row: 1 }, 2.0),
+      (CellId { col: 'C', row: 1 }, 0.2187456),
+    ]);
+    assert_eq!(expr.eval(&ctx).unwrap(), -484.33364550000005);
   }
 }
