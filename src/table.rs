@@ -275,15 +275,15 @@ fn Cell(props: &CellProps) -> Html {
   // TODO: check vs old logic props.computed_value.clone().or(props.value.clone());
   let div_value = props.value.clone().map(|content| match content.computed {
     Some(Expr::Num(n)) => n.to_string(),
-    Some(Expr::Str(s)) => s.clone(),
     _ => content.input,
   });
 
-  log_1(&JsValue::from_str(&format!(
-    "div_value: {:?}, input_value: {:?}",
-    &div_value,
-    props.value.clone().map(|v| v.input)
-  )));
+  // TODO:
+  // log_1(&JsValue::from_str(&format!(
+  //   "div_value: {:?}, input_value: {:?}",
+  //   &div_value,
+  //   props.value.clone().map(|v| v.input)
+  // )));
 
   let input_value = props
     .value

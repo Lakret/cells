@@ -291,6 +291,12 @@ mod tests {
   fn parse_test() {
     use Expr::*;
 
+    assert_eq!(parse("12"), Ok(Num(12.0)));
+    assert_eq!(parse("yo"), Ok(Str("yo".to_string())));
+
+    assert_eq!(parse("A12"), Ok(Str("A12".to_string())));
+    assert_eq!(parse("= A12"), Ok(CellRef(CellId { col: 'A', row: 12 })));
+
     assert_eq!(parse("=12"), Ok(Num(12.)));
     assert_eq!(parse("=12.2"), Ok(Num(12.2)));
     assert_eq!(
