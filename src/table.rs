@@ -20,14 +20,9 @@ pub enum Msg {
 pub struct Table {
   big_input_text: String,
   focused_cell: Option<CellId>,
-  values: HashMap<CellId, CellContent>,
-}
-
-#[derive(Clone, PartialEq)]
-pub struct CellContent {
-  input: String,
-  expr: Expr,
-  computed: Option<Expr>,
+  inputs: HashMap<CellId, String>,
+  exprs: HashMap<CellId, Expr>,
+  computed: HashMap<CellId, Expr>,
 }
 
 // TODO: cell reference insertion mode when cell is edited and starts with =
@@ -130,7 +125,9 @@ impl Component for Table {
                             html! {
                               <Cell
                                 {cell_id}
-                                value={ self.values.get(&cell_id).map(|v| v.clone()) }
+                                input={self.inputs.get(&cell_id).map(|x| x.clone())}
+                                expr={self.exprs.get(&cell_id).map(|x| x.clone())}
+                                computed={self.computed.get(&cell_id).map(|x| x.clone())}
                                 onfocus={
                                   ctx.link().callback(move |ev: FocusEvent| {
                                     let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
@@ -180,32 +177,18 @@ impl Component for Table {
         self.big_input_text = String::from("");
         true
       }
-      // TODO: weird bug with last letter being missing
       Msg::CellChanged { cell_id, new_value } => {
-        // TODO: what to do with errors?
+        self.big_input_text = new_value.clone();
         let expr = parse(&new_value).unwrap_or_else(|_err| Expr::Str(new_value.clone()));
+        self.inputs.insert(cell_id, new_value);
+        self.exprs.insert(cell_id, expr.clone());
 
-        log_1(&JsValue::from_str(&format!("expr: {expr:?}")));
-
-        // TODO: this is inefficient, since we both create a new computed hashmap and recompute everything
-        // we probably can live with the recomputation, but building the computed hashmap every time is annoying
-        let mut new_values = self
-          .values
-          .iter()
-          .map(|(&k, v)| (k, v.clone().expr))
-          .collect::<HashMap<_, _>>();
-        new_values.insert(cell_id, expr.clone());
-        let computed = eval(&new_values).unwrap();
-
-        log_1(&JsValue::from_str(&format!("{computed:?}")));
-
-        let content = CellContent {
-          input: new_value.clone(),
-          expr: expr,
-          computed: computed.get(&cell_id).map(|computed| computed.clone()),
+        match eval(&self.exprs) {
+          Ok(computed) => self.computed = computed,
+          Err(err) => log_1(&JsValue::from_str(&format!(
+            "Failed when trying to recompute after assigning {cell_id:?} = {expr:?}: {err}."
+          ))),
         };
-        self.values.insert(cell_id, content);
-        self.big_input_text = new_value;
         true
       }
     }
@@ -215,7 +198,9 @@ impl Component for Table {
 #[derive(PartialEq, Properties)]
 pub struct CellProps {
   pub cell_id: CellId,
-  pub value: Option<CellContent>,
+  pub input: Option<String>,
+  pub expr: Option<Expr>,
+  pub computed: Option<Expr>,
   pub onfocus: Callback<FocusEvent>,
   pub onfocusout: Callback<FocusEvent>,
   pub oninput: Callback<InputEvent>,
@@ -274,26 +259,12 @@ fn Cell(props: &CellProps) -> Html {
   };
 
   // if `computed_value` is present, show it in the div cell, otherwise show `value`
-  // TODO: check vs old logic props.computed_value.clone().or(props.value.clone());
-  let div_value = props.value.clone().map(|content| match content.computed {
+  let div_value = match props.computed {
     Some(Expr::Num(n)) => n.to_string(),
-    _ => content.input,
-  });
+    _ => props.input.clone().unwrap_or_default(),
+  };
 
-  // TODO:
-  // log_1(&JsValue::from_str(&format!(
-  //   "div_value: {:?}, input_value: {:?}",
-  //   &div_value,
-  //   props.value.clone().map(|v| v.input)
-  // )));
-
-  let input_value = props
-    .value
-    .clone()
-    .map_or_else(|| String::new(), |content| content.input);
-
-  // TODO:
-  // log_1(&JsValue::from_str(&format!("input_value: {input_value:?}")));
+  let input_value = props.input.clone().unwrap_or_default();
 
   // note that the div gets a tabindex to allow focus & keyboard events;
   // `input_ref` is used to focus the input
@@ -327,18 +298,7 @@ fn Cell(props: &CellProps) -> Html {
           {ondblclick}
           onfocusout={ div_onfocusout }
         >
-          {
-            match &div_value {
-              None => {
-                html!{}
-              },
-              Some(value) => {
-                html!{
-                  <span class="grow text-right select-none font-mono">{ value }</span>
-                }
-              }
-            }
-          }
+          <span class="grow text-right select-none font-mono">{ div_value }</span>
         </div>
       </div>
     </td>
