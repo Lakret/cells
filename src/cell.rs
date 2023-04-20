@@ -5,11 +5,12 @@ use crate::{cell_id::CellId, expr::Expr};
 
 #[derive(PartialEq, Properties)]
 pub struct CellProps {
+  pub is_focused: bool,
   pub cell_id: CellId,
   pub input: Option<String>,
   pub expr: Option<Expr>,
   pub computed: Option<Expr>,
-  pub onfocus: Callback<FocusEvent>,
+  pub onfocused: Callback<(CellId, String)>,
   pub onfocusout: Callback<FocusEvent>,
   pub oninput: Callback<InputEvent>,
   // sending a custom string as if it was inputted into cell - useful for processing of keyboard input
@@ -22,7 +23,6 @@ A cell that can be both selected and typed into.
 */
 #[function_component]
 pub fn Cell(props: &CellProps) -> Html {
-  let div_select_mode = use_state(|| false);
   let input_mode = use_state(|| false);
   let input_ref = use_node_ref();
 
@@ -34,11 +34,23 @@ pub fn Cell(props: &CellProps) -> Html {
     _ => props.input.clone().unwrap_or_default(),
   };
 
+  let onfocus = {
+    let cell_id = props.cell_id.clone();
+    let input_value = input_value.clone();
+    let parent_onfocus = props.onfocused.clone();
+
+    Callback::from(move |_ev: FocusEvent| {
+      parent_onfocus.emit((cell_id, input_value.clone()));
+    })
+  };
+
   let onclick = {
-    let div_select_mode = div_select_mode.clone();
+    let cell_id = props.cell_id.clone();
+    let input_value = input_value.clone();
+    let parent_onfocus = props.onfocused.clone();
 
     Callback::from(move |_ev: MouseEvent| {
-      div_select_mode.set(true);
+      parent_onfocus.emit((cell_id, input_value.clone()));
     })
   };
 
@@ -77,11 +89,9 @@ pub fn Cell(props: &CellProps) -> Html {
   };
 
   let div_onfocusout = {
-    let div_select_mode = div_select_mode.clone();
     let parent_onfocusout = props.onfocusout.clone();
 
     Callback::from(move |ev: FocusEvent| {
-      div_select_mode.set(false);
       parent_onfocusout.emit(ev);
     })
   };
@@ -111,7 +121,7 @@ pub fn Cell(props: &CellProps) -> Html {
             if *input_mode { "z-10" } else { "z-0 select-none" }
           ])}
           value={ input_value }
-          onfocus={ props.onfocus.clone() }
+          {onfocus}
           oninput={ props.oninput.clone() }
           onfocusout={ input_onfocusout  }
         />
@@ -123,7 +133,7 @@ pub fn Cell(props: &CellProps) -> Html {
             "flex px-2 py-0.5 w-[16rem] -ml-[16rem] h-[2.125rem]",
             "border-[1px] border-indigo-900",
             if *input_mode { "z-0" } else { "z-10" },
-            if *div_select_mode { "bg-indigo-700" } else { "bg-indigo-800" },
+            if props.is_focused { "bg-indigo-700" } else { "bg-indigo-800" },
           ])}
           {onclick}
           {ondblclick}

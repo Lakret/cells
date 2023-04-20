@@ -23,12 +23,14 @@ pub enum Msg {
   CellFocused { cell_id: CellId, value: String },
   CellLostFocus { cell_id: CellId },
   CellChanged { cell_id: CellId, new_value: String },
+  BigInputFocused,
 }
 
 #[derive(Default, Debug)]
 pub struct Table {
   big_input_text: String,
   focused_cell: Option<CellId>,
+  prev_focused_cell: Option<CellId>,
   paste_modal_visible: bool,
   inputs: HashMap<CellId, String>,
   exprs: HashMap<CellId, Expr>,
@@ -130,27 +132,27 @@ impl Component for Table {
         <div class="w-screen grow-0 sticky top-0 left-0 z-50 flex gap-4 px-4 py-4 bg-indigo-900">
           <input
             type="text"
-            value={ self.big_input_text.clone() }
             class={classes!(vec![
-              "grow ml-[3rem] px-2 py-0.5 outline-none font-mono",
-              "border-[1px] border-indigo-900 bg-indigo-800"
+              "grow ml-[3rem] px-2 py-0.5 outline-none font-mono border-[1px] border-indigo-900 bg-indigo-800"
             ])}
+            value={ self.big_input_text.clone() }
+            onfocusin={ ctx.link().callback(move |_ev: FocusEvent| { Msg::BigInputFocused })}
           />
 
           <Btn
             title="Copy All"
             color={ BtnColors::Purple }
-            onclick={ ctx.link().callback(move |_ev:MouseEvent| { Msg::CopyAll }) }
+            onclick={ ctx.link().callback(move |_ev: MouseEvent| { Msg::CopyAll }) }
           />
           <Btn
             title="Paste All"
             color={ BtnColors::Violet }
-            onclick={ ctx.link().callback(move |_ev:MouseEvent| { Msg::PasteAll }) }
+            onclick={ ctx.link().callback(move |_ev: MouseEvent| { Msg::PasteAll }) }
           />
           <Btn
             title="Help"
             color={ BtnColors::Green }
-            onclick={ ctx.link().callback(move |_ev:MouseEvent| { Msg::Help }) }
+            onclick={ ctx.link().callback(move |_ev: MouseEvent| { Msg::Help }) }
           />
         </div>
 
@@ -215,13 +217,14 @@ impl Component for Table {
                           html! {
                             <Cell
                               {cell_id}
+                              is_focused={self.focused_cell == Some(cell_id)}
                               input={self.inputs.get(&cell_id).map(|x| x.clone())}
                               expr={self.exprs.get(&cell_id).map(|x| x.clone())}
                               computed={self.computed.get(&cell_id).map(|x| x.clone())}
-                              onfocus={
-                                ctx.link().callback(move |ev: FocusEvent| {
-                                  let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
-                                  let value = input.value();
+                              onfocused={
+                                ctx.link().callback(move |(cell_id, value)| {
+                                  // let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
+                                  // let value = input.value();
 
                                   Msg::CellFocused { cell_id, value }
                                 })
@@ -262,12 +265,23 @@ impl Component for Table {
 
   fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
     match msg {
+      Msg::BigInputFocused => {
+        match self.prev_focused_cell {
+          Some(cell_id) => {
+            self.big_input_text = self.inputs.get(&cell_id).cloned().unwrap_or_default();
+            self.focused_cell = Some(cell_id);
+          }
+          None => (),
+        }
+        true
+      }
       Msg::CellFocused { cell_id, value } => {
         self.focused_cell = Some(cell_id);
         self.big_input_text = value;
         true
       }
       Msg::CellLostFocus { .. } => {
+        self.prev_focused_cell = self.focused_cell;
         self.focused_cell = None;
         self.big_input_text = String::from("");
         true
