@@ -4,6 +4,7 @@ use yew::prelude::*;
 extern crate lazy_static;
 
 mod btn;
+mod cell;
 mod cell_id;
 mod expr;
 mod parser;
