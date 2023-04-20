@@ -1,12 +1,14 @@
-use crate::expr::Expr;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
+
+use crate::expr::Expr;
 
 #[derive(Debug, Clone)]
 pub struct Cells {
   pub by_id: HashMap<CellId, Expr>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CellId {
   pub col: char,
   pub row: usize,

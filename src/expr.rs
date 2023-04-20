@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::{
   collections::{HashMap, HashSet},
   error::Error,
@@ -6,7 +7,7 @@ use std::{
 use crate::cell_id::CellId;
 use Op::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Op {
   Neg,
   Add,
@@ -45,7 +46,7 @@ impl TryFrom<&str> for Op {
   }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
   Str(String),
   Num(f64),
@@ -226,7 +227,13 @@ fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dy
   if depends_on.is_empty() {
     Ok(res)
   } else {
-    Err(format!("cycle detected between cells: {:?}", depends_on.keys()).into())
+    Err(
+      format!(
+        "cycle or non-computable cell reference detected in cells: {:?}",
+        depends_on.keys()
+      )
+      .into(),
+    )
   }
 }
 

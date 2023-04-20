@@ -12,7 +12,10 @@ rustflags=["--cfg=web_sys_unstable_apis"]
 
 [dependencies]
 yew = { version = "0.20.0", features = ["csr"] }
-web-sys = { version = "0.3.61", features = ["Clipboard", "ClipboardEvent"] }
+web-sys = { version = "0.3.61", features = ["Clipboard", "ClipboardEvent", "Navigator"] }
 wasm-bindgen = "*"
+wasm-bindgen-futures = "*"
 lazy_static = "1.4"
 regex = "^1.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

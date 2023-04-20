@@ -1,8 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
 use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen_futures::*;
 use web_sys::console::log_1;
-use web_sys::Clipboard;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
@@ -12,12 +12,15 @@ use crate::parser::parse;
 
 #[derive(Debug, PartialEq)]
 pub enum Msg {
+  CopyAll,
+  PasteAll,
+  Help,
   CellFocused { cell_id: CellId, value: String },
   CellLostFocus { cell_id: CellId },
   CellChanged { cell_id: CellId, new_value: String },
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Table {
   big_input_text: String,
   focused_cell: Option<CellId>,
@@ -26,7 +29,76 @@ pub struct Table {
   computed: HashMap<CellId, Expr>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SerializableTable {
+  // serde-json doesn't allow using non-string keys in hashmaps
+  inputs: HashMap<String, String>,
+}
+
 // TODO: cell reference insertion mode when cell is edited and starts with =
+
+impl Table {
+  fn reeval(&mut self) {
+    match eval(&self.exprs) {
+      Ok(computed) => self.computed = computed,
+      Err(err) => log_1(&JsValue::from_str(&format!(
+        "Failed when trying to recompute: {err}."
+      ))),
+    };
+  }
+
+  fn cells_to_str(&self) -> String {
+    let t = SerializableTable {
+      inputs: self
+        .inputs
+        .iter()
+        .map(|(cell_id, input)| (cell_id.to_string(), input.clone()))
+        .collect(),
+    };
+    serde_json::to_string(&t).unwrap()
+  }
+
+  fn cells_from_str(&mut self, encoded: &str) {
+    match serde_json::from_str::<SerializableTable>(encoded) {
+      Ok(serializable_table) => {
+        let inputs = serializable_table
+          .inputs
+          .into_iter()
+          .map(|(cell_id, input)| {
+            CellId::try_from(cell_id.as_ref()).map(|cell_id| (cell_id, input))
+          })
+          .collect::<Result<HashMap<_, _>, _>>();
+
+        match inputs {
+          Ok(inputs) => {
+            self.inputs = inputs;
+
+            self.exprs = self
+              .inputs
+              .iter()
+              .filter_map(|(cell_id, input)| match parse(input) {
+                Ok(expr) => Some((cell_id.clone(), expr.clone())),
+                Err(err) => {
+                  log_1(&JsValue::from(format!(
+                    "cannot parse `{}` due to: {err:?}",
+                    input
+                  )));
+                  None
+                }
+              })
+              .collect();
+
+            self.reeval();
+          }
+          Err(err) => log_1(&JsValue::from(format!(
+            "cannot deserialize table from pasted input due to: {err:?}"
+          ))),
+        }
+      }
+      Err(_) => log_1(&JsValue::from("failed when trying to deserialized table")),
+    }
+  }
+}
 
 impl Component for Table {
   type Message = Msg;
@@ -49,9 +121,21 @@ impl Component for Table {
             ])}
           />
 
-          <Btn title="Copy" color={ BtnColors::Purple } />
-          <Btn title="Paste" color={ BtnColors::Orange } />
-          <Btn title="Help" color={ BtnColors::Green } />
+          <Btn
+            title="Copy All"
+            color={ BtnColors::Purple }
+            onclick={ ctx.link().callback(move |_ev:MouseEvent| { Msg::CopyAll }) }
+          />
+          <Btn
+            title="Paste All"
+            color={ BtnColors::Orange }
+            onclick={ ctx.link().callback(move |_ev:MouseEvent| { Msg::PasteAll }) }
+          />
+          <Btn
+            title="Help"
+            color={ BtnColors::Green }
+            onclick={ ctx.link().callback(move |_ev:MouseEvent| { Msg::Help }) }
+          />
         </div>
 
           <div class="overflow-scroll snap-y snap-mandatory pb-4">
@@ -174,12 +258,33 @@ impl Component for Table {
         self.inputs.insert(cell_id, new_value);
         self.exprs.insert(cell_id, expr.clone());
 
-        match eval(&self.exprs) {
-          Ok(computed) => self.computed = computed,
-          Err(err) => log_1(&JsValue::from_str(&format!(
-            "Failed when trying to recompute after assigning {cell_id:?} = {expr:?}: {err}."
-          ))),
-        };
+        self.reeval();
+        true
+      }
+      Msg::CopyAll => {
+        let serialized_cells = self.cells_to_str();
+
+        spawn_local(async move {
+          match web_sys::window().unwrap().navigator().clipboard() {
+            Some(clipboard) => {
+              match JsFuture::from(clipboard.write_text(&serialized_cells)).await {
+                Ok(_) => (),
+                Err(err) => log_1(&JsValue::from(format!(
+                  "couldn't copy cells to clipboard due to {err:?}"
+                ))),
+              }
+            }
+            None => log_1(&JsValue::from("cannot access clipboard")),
+          }
+        });
+        true
+      }
+      Msg::PasteAll => {
+        // TODO:
+        true
+      }
+      Msg::Help => {
+        // TODO:
         true
       }
     }
@@ -299,8 +404,9 @@ fn Cell(props: &CellProps) -> Html {
 
 #[derive(PartialEq, Properties)]
 struct BtnProps {
-  title: String,
-  color: BtnColors,
+  pub title: String,
+  pub color: BtnColors,
+  pub onclick: Callback<MouseEvent>,
 }
 
 #[derive(PartialEq)]
@@ -323,10 +429,13 @@ impl BtnColors {
 #[function_component]
 fn Btn(props: &BtnProps) -> Html {
   html! {
-    <button class={classes!(vec![
-      "flex items-center justify-center leading-none px-4 py-2 cursor-pointer rounded-md",
-      props.color.to_classes()
-    ])}>
+    <button
+      onclick={props.onclick.clone()}
+      class={classes!(vec![
+        "flex items-center justify-center leading-none px-4 py-2 cursor-pointer rounded-md",
+        props.color.to_classes()
+      ])}
+    >
       { props.title.clone() }
     </button>
   }
