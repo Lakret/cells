@@ -5,7 +5,7 @@
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install --locked trunk
-trunk serve --port 8082 --release
+RUSTFLAGS='--cfg=web_sys_unstable_apis' trunk serve --port 8082 --release
 ```
 
 Make sure that [Tailwind CLI](https://tailwindcss.com/docs/installation) is installed and is in the `PATH`.
@@ -27,17 +27,40 @@ could be served by any web server that can handle static files.
 For example:
 
 ```sh
-trunk build --release -d prod_dist
+RUSTFLAGS='--cfg=web_sys_unstable_apis' trunk build --release -d prod_dist
 python -m http.server 8083 --directory prod_dist
 ```
 
 ... and you can see the app working on localhost:8083.
 
-# TODO
+## Using unstable web-sys APIs
 
-- [x] tailwind (https://tailwindcss.com/docs/installation)
-- [x] basic layout
-- [x] editable cells
-- [ ] big input / cell sync
-- [ ] formula parser (nom?)
-- [ ] evaluator
+To use ustable web-sys APIs such as `Clipboard`, you'll need to do the following:
+
+1. Add this to `Cargo.toml`:
+
+```yaml
+[build]
+rustflags=["--cfg=web_sys_unstable_apis"]
+```
+
+Also, don't forget to enable the specific web-sys crate features you're planning to use, e.g.:
+
+```yaml
+[dependencies]
+web-sys = { version = "0.3.51", features = ["Clipboard"] }
+```
+
+2. Make sure to pass `RUSTFLAGS='--cfg=web_sys_unstable_apis'` when you call trunk:
+
+```sh
+RUSTFLAGS='--cfg=web_sys_unstable_apis' trunk serve --port 8082 --release
+```
+
+3. If you're using rust-analyzer, e.g. in VSCode, you should add this to your `settings.json`:
+
+```json
+"rust-analyzer.cargo.extraEnv": {
+  "RUSTFLAGS": "--cfg=web_sys_unstable_apis"
+}
+```

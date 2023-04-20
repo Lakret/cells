@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::console::log_1;
+use web_sys::Clipboard;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
@@ -48,19 +49,9 @@ impl Component for Table {
             ])}
           />
 
-          <button class={classes!(vec![
-            "flex flex-col items-center px-4 py-0.5 cursor-pointer rounded-md",
-            "bg-purple-800 hover:bg-purple-700"
-          ])}>
-            { "Clear All" }
-          </button>
-
-          <button class={classes!(vec![
-            "flex flex-col items-center px-4 py-0.5 cursor-pointer rounded-md",
-            "bg-green-800 hover:bg-green-700"
-          ])}>
-            { "Help" }
-          </button>
+          <Btn title="Copy" color={ BtnColors::Purple } />
+          <Btn title="Paste" color={ BtnColors::Orange } />
+          <Btn title="Help" color={ BtnColors::Green } />
         </div>
 
           <div class="overflow-scroll snap-y snap-mandatory pb-4">
@@ -285,6 +276,7 @@ fn Cell(props: &CellProps) -> Html {
           oninput={ props.oninput.clone() }
           onfocusout={ input_onfocusout  }
         />
+
         <div
           id={ props.cell_id.to_string() }
           tabindex="0"
@@ -302,5 +294,40 @@ fn Cell(props: &CellProps) -> Html {
         </div>
       </div>
     </td>
+  }
+}
+
+#[derive(PartialEq, Properties)]
+struct BtnProps {
+  title: String,
+  color: BtnColors,
+}
+
+#[derive(PartialEq)]
+enum BtnColors {
+  Purple,
+  Green,
+  Orange,
+}
+
+impl BtnColors {
+  pub fn to_classes(&self) -> &'static str {
+    match self {
+      BtnColors::Purple => "bg-purple-800 hover:bg-purple-700",
+      BtnColors::Green => "bg-green-800 hover:bg-green-700",
+      BtnColors::Orange => "bg-orange-800 hover:bg-orange-700",
+    }
+  }
+}
+
+#[function_component]
+fn Btn(props: &BtnProps) -> Html {
+  html! {
+    <button class={classes!(vec![
+      "flex items-center justify-center leading-none px-4 py-2 cursor-pointer rounded-md",
+      props.color.to_classes()
+    ])}>
+      { props.title.clone() }
+    </button>
   }
 }

@@ -3,9 +3,16 @@ name = "cells"
 version = "0.1.0"
 edition = "2021"
 
+# RUSTFLAGS='--cfg=web_sys_unstable_apis' trunk serve --port 8082 --release
+# "rust-analyzer.cargo.extraEnv": {
+#   "RUSTFLAGS": "--cfg=web_sys_unstable_apis"
+# },
+[build]
+rustflags=["--cfg=web_sys_unstable_apis"]
+
 [dependencies]
 yew = { version = "0.20.0", features = ["csr"] }
-web-sys = "*"
+web-sys = { version = "0.3.61", features = ["Clipboard", "ClipboardEvent"] }
 wasm-bindgen = "*"
 lazy_static = "1.4"
 regex = "^1.7"
