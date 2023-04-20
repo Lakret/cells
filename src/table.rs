@@ -1,9 +1,10 @@
+use regex::internal::Input;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::*;
 use web_sys::console::log_1;
-use web_sys::HtmlInputElement;
+use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
 use crate::cell_id::CellId;
@@ -14,6 +15,8 @@ use crate::parser::parse;
 pub enum Msg {
   CopyAll,
   PasteAll,
+  PasteAllContent { serialized_table: String },
+  PasteModalClose,
   Help,
   CellFocused { cell_id: CellId, value: String },
   CellLostFocus { cell_id: CellId },
@@ -24,6 +27,7 @@ pub enum Msg {
 pub struct Table {
   big_input_text: String,
   focused_cell: Option<CellId>,
+  paste_modal_visible: bool,
   inputs: HashMap<CellId, String>,
   exprs: HashMap<CellId, Expr>,
   computed: HashMap<CellId, Expr>,
@@ -95,7 +99,9 @@ impl Table {
           ))),
         }
       }
-      Err(_) => log_1(&JsValue::from("failed when trying to deserialized table")),
+      Err(err) => log_1(&JsValue::from(format!(
+        "failed when trying to deserialized table: {err:?}"
+      ))),
     }
   }
 }
@@ -111,6 +117,14 @@ impl Component for Table {
   fn view(&self, ctx: &Context<Self>) -> Html {
     html! {
       <div class="mx-auto flex flex-col h-full max-h-full w-full max-w-full text-white text-xl grow-0">
+        <PasteModal
+          is_visible={ self.paste_modal_visible }
+          onclose={ ctx.link().callback(move |()| { Msg::PasteModalClose })}
+          onpaste={ ctx.link().callback(move |serialized_table: String| {
+            Msg::PasteAllContent { serialized_table }
+          })}
+        />
+
         <div class="w-screen grow-0 sticky top-0 left-0 z-50 flex gap-4 px-4 py-4 bg-indigo-900">
           <input
             type="text"
@@ -128,7 +142,7 @@ impl Component for Table {
           />
           <Btn
             title="Paste All"
-            color={ BtnColors::Orange }
+            color={ BtnColors::Violet }
             onclick={ ctx.link().callback(move |_ev:MouseEvent| { Msg::PasteAll }) }
           />
           <Btn
@@ -157,8 +171,7 @@ impl Component for Table {
                     html! {
                       <th id={ format!("header-col-{col}") }
                         class={classes!(vec![
-                            "z-30 sticky top-0 snap-start bg-clip-padding bg-indigo-900",
-                            "text-center",
+                            "z-30 sticky top-0 snap-start bg-clip-padding bg-indigo-900 text-center",
                             header_style
                         ])}>
                         { col }
@@ -212,7 +225,7 @@ impl Component for Table {
                                 })
                               }
                               onfocusout={
-                                ctx.link().callback(move |ev: FocusEvent| {
+                                ctx.link().callback(move |_ev: FocusEvent| {
                                   Msg::CellLostFocus { cell_id }
                                 })
                               }
@@ -285,7 +298,15 @@ impl Component for Table {
         true
       }
       Msg::PasteAll => {
-        // TODO:
+        self.paste_modal_visible = true;
+        true
+      }
+      Msg::PasteModalClose => {
+        self.paste_modal_visible = false;
+        true
+      }
+      Msg::PasteAllContent { serialized_table } => {
+        self.cells_from_str(&serialized_table);
         true
       }
       Msg::Help => {
@@ -441,15 +462,15 @@ struct BtnProps {
 enum BtnColors {
   Purple,
   Green,
-  Orange,
+  Violet,
 }
 
 impl BtnColors {
   pub fn to_classes(&self) -> &'static str {
     match self {
       BtnColors::Purple => "bg-purple-800 hover:bg-purple-700",
-      BtnColors::Green => "bg-green-800 hover:bg-green-700",
-      BtnColors::Orange => "bg-orange-800 hover:bg-orange-700",
+      BtnColors::Green => "bg-emerald-800 hover:bg-emerald-700",
+      BtnColors::Violet => "bg-violet-800 hover:bg-violet-700",
     }
   }
 }
@@ -466,5 +487,84 @@ fn Btn(props: &BtnProps) -> Html {
     >
       { props.title.clone() }
     </button>
+  }
+}
+
+#[derive(PartialEq, Properties)]
+struct PasteModalProps {
+  is_visible: bool,
+  onpaste: Callback<String>,
+  onclose: Callback<()>,
+}
+
+#[function_component]
+fn PasteModal(props: &PasteModalProps) -> Html {
+  let value = use_state(|| String::new());
+
+  let oninput = {
+    let value = value.clone();
+
+    Callback::from(move |ev: InputEvent| {
+      let input: HtmlTextAreaElement = ev.target().unwrap().dyn_into().unwrap();
+      let new_value = input.value();
+
+      value.set(new_value);
+    })
+  };
+
+  let onpasteclick = {
+    let value = value.clone();
+    let parent_onpaste = props.onpaste.clone();
+    let parent_onclose = props.onclose.clone();
+
+    Callback::from(move |_ev: MouseEvent| {
+      let v = value.to_string();
+      value.set(String::new());
+
+      parent_onclose.emit(());
+      parent_onpaste.emit(v);
+    })
+  };
+
+  let onclose = {
+    let parent_onclose = props.onclose.clone();
+
+    Callback::from(move |_ev: MouseEvent| {
+      parent_onclose.emit(());
+    })
+  };
+
+  if props.is_visible {
+    html! {
+      <div class={classes!(vec![
+          "z-[100] fixed top-0 left-0 right-0 w-full p-4 overflow-x-hidden overflow-y-auto h-full max-h-full",
+          "flex flex-col items-center justify-center backdrop-blur-sm"
+        ])}
+      >
+        <div class="flex flex-col w-[32rem] py-2 px-4 bg-violet-900 rounded-md">
+          <div class="flex justify-between pb-2">
+            <h1 class="italic text-neutral-200">{ "Paste All Cells from JSON" }</h1>
+            <button onclick={onclose}>{ "⨉" }</button>
+          </div>
+          <div class="flex flex-col gap-2">
+            <textarea
+              cols="40"
+              rows="5"
+              placeholder="Paste cells JSON here and press 'Paste'"
+              class="outline-none p-1 bg-violet-700"
+              value={ (*value).clone() }
+              {oninput}
+            />
+
+            <Btn
+              title="Paste"
+              color={ BtnColors::Green }
+              onclick={ onpasteclick }/>
+          </div>
+        </div>
+      </div>
+    }
+  } else {
+    html! {}
   }
 }
