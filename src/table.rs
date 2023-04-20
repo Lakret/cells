@@ -184,16 +184,18 @@ impl Component for Table {
       Msg::CellChanged { cell_id, new_value } => {
         // TODO: what to do with errors?
         let expr = parse(&new_value).unwrap_or_else(|_err| Expr::Str(new_value.clone()));
+
+        log_1(&JsValue::from_str(&format!("expr: {expr:?}")));
+
         // TODO: this is inefficient, since we both create a new computed hashmap and recompute everything
         // we probably can live with the recomputation, but building the computed hashmap every time is annoying
-        let computed = eval(
-          &self
-            .values
-            .iter()
-            .map(|(&k, v)| (k, v.clone().expr))
-            .collect(),
-        )
-        .unwrap();
+        let mut new_values = self
+          .values
+          .iter()
+          .map(|(&k, v)| (k, v.clone().expr))
+          .collect::<HashMap<_, _>>();
+        new_values.insert(cell_id, expr.clone());
+        let computed = eval(&new_values).unwrap();
 
         log_1(&JsValue::from_str(&format!("{computed:?}")));
 
