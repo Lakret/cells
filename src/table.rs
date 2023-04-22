@@ -13,6 +13,7 @@ use crate::expr::{eval, Expr};
 use crate::parser::parse;
 use crate::paste_modal::PasteModal;
 
+// TODO: add input to cell through the big input
 // TODO: enable cell reference insertion if a cell is input and starts with =
 // TODO: keyboard navigation between cells
 #[derive(Debug, PartialEq)]
