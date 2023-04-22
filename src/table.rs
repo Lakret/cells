@@ -13,6 +13,8 @@ use crate::expr::{eval, Expr};
 use crate::parser::parse;
 use crate::paste_modal::PasteModal;
 
+// TODO: enable cell reference insertion if a cell is input and starts with =
+// TODO: keyboard navigation between cells
 #[derive(Debug, PartialEq)]
 pub enum Msg {
   CopyAll,
