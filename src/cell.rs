@@ -6,15 +6,18 @@ use crate::{cell_id::CellId, expr::Expr};
 #[derive(PartialEq, Properties)]
 pub struct CellProps {
   pub is_focused: bool,
+  pub is_input: bool,
   pub cell_id: CellId,
   pub input: Option<String>,
   pub expr: Option<Expr>,
   pub computed: Option<Expr>,
   pub onfocused: Callback<(CellId, String)>,
   pub onfocusout: Callback<FocusEvent>,
+  pub onbecameinput: Callback<CellId>,
+  pub onlostinput: Callback<CellId>,
   pub oninput: Callback<InputEvent>,
-  // sending a custom string as if it was inputted into cell - useful for processing of keyboard input
-  // on a focused cell, for example
+  // sets a custom string as if it was inputted into cell -
+  // useful for processing of keyboard input on a focused cell, for example
   pub sendinput: Callback<String>,
 }
 
@@ -23,7 +26,6 @@ A cell that can be both selected and typed into.
 */
 #[function_component]
 pub fn Cell(props: &CellProps) -> Html {
-  let input_mode = use_state(|| false);
   let input_ref = use_node_ref();
 
   let input_value = props.input.clone().unwrap_or_default();
@@ -55,11 +57,12 @@ pub fn Cell(props: &CellProps) -> Html {
   };
 
   let ondblclick = {
-    let input_mode = input_mode.clone();
+    let cell_id = props.cell_id.clone();
     let input_ref = input_ref.clone();
+    let parent_onbecameinput = props.onbecameinput.clone();
 
     Callback::from(move |_ev: MouseEvent| {
-      input_mode.set(true);
+      parent_onbecameinput.emit(cell_id);
 
       input_ref
         .cast::<HtmlInputElement>()
@@ -70,21 +73,20 @@ pub fn Cell(props: &CellProps) -> Html {
   };
 
   let onkeypress = {
-    let input_mode = input_mode.clone();
+    let cell_id = props.cell_id.clone();
     let input_ref = input_ref.clone();
-
     let parent_sendinput = props.sendinput.clone();
+    let parent_onbecameinput = props.onbecameinput.clone();
 
     Callback::from(move |ev: KeyboardEvent| {
-      input_mode.set(true);
+      parent_onbecameinput.emit(cell_id);
+      parent_sendinput.emit(ev.key());
 
       input_ref
         .cast::<HtmlInputElement>()
         .expect("ref is not attached to an input")
         .focus()
         .expect("cannot focus");
-
-      parent_sendinput.emit(ev.key());
     })
   };
 
@@ -97,11 +99,12 @@ pub fn Cell(props: &CellProps) -> Html {
   };
 
   let input_onfocusout = {
-    let input_mode = input_mode.clone();
+    let cell_id = props.cell_id.clone();
     let parent_onfocusout = props.onfocusout.clone();
+    let parent_onlostinput = props.onlostinput.clone();
 
     Callback::from(move |ev: FocusEvent| {
-      input_mode.set(false);
+      parent_onlostinput.emit(cell_id);
       parent_onfocusout.emit(ev);
     })
   };
@@ -118,7 +121,7 @@ pub fn Cell(props: &CellProps) -> Html {
           class={classes!(vec![
             "px-2 py-0.5 w-[16rem] h-[2.125rem] outline-none text-right snap-start",
             "border-collapse border-[1px] border-indigo-900 bg-indigo-800 font-mono",
-            if *input_mode { "z-10" } else { "z-0 select-none" }
+            if props.is_input { "z-10" } else { "z-0 select-none" }
           ])}
           value={ input_value }
           {onfocus}
@@ -132,7 +135,7 @@ pub fn Cell(props: &CellProps) -> Html {
           class={classes!(vec![
             "flex px-2 py-0.5 w-[16rem] -ml-[16rem] h-[2.125rem]",
             "border-[1px] border-indigo-900",
-            if *input_mode { "z-0" } else { "z-10" },
+            if props.is_input { "z-0" } else { "z-10" },
             if props.is_focused { "bg-indigo-700" } else { "bg-indigo-800" },
           ])}
           {onclick}

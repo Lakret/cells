@@ -22,6 +22,8 @@ pub enum Msg {
   Help,
   CellFocused { cell_id: CellId, value: String },
   CellLostFocus { cell_id: CellId },
+  CellBecameInput { cell_id: CellId },
+  CellLostInput { cell_id: CellId },
   CellChanged { cell_id: CellId, new_value: String },
   BigInputFocused,
 }
@@ -30,6 +32,7 @@ pub enum Msg {
 pub struct Table {
   big_input_text: String,
   focused_cell: Option<CellId>,
+  input_cell: Option<CellId>,
   prev_focused_cell: Option<CellId>,
   paste_modal_visible: bool,
   inputs: HashMap<CellId, String>,
@@ -218,6 +221,7 @@ impl Component for Table {
                             <Cell
                               {cell_id}
                               is_focused={self.focused_cell == Some(cell_id)}
+                              is_input={self.input_cell == Some(cell_id)}
                               input={self.inputs.get(&cell_id).map(|x| x.clone())}
                               expr={self.exprs.get(&cell_id).map(|x| x.clone())}
                               computed={self.computed.get(&cell_id).map(|x| x.clone())}
@@ -232,6 +236,16 @@ impl Component for Table {
                               onfocusout={
                                 ctx.link().callback(move |_ev: FocusEvent| {
                                   Msg::CellLostFocus { cell_id }
+                                })
+                              }
+                              onbecameinput={
+                                ctx.link().callback(move |cell_id| {
+                                  Msg::CellBecameInput { cell_id }
+                                })
+                              }
+                              onlostinput={
+                                ctx.link().callback(move |cell_id| {
+                                  Msg::CellLostInput { cell_id }
                                 })
                               }
                               oninput={
@@ -284,6 +298,14 @@ impl Component for Table {
         self.prev_focused_cell = self.focused_cell;
         self.focused_cell = None;
         self.big_input_text = String::from("");
+        true
+      }
+      Msg::CellBecameInput { cell_id } => {
+        self.input_cell = Some(cell_id);
+        true
+      }
+      Msg::CellLostInput { .. } => {
+        self.input_cell = None;
         true
       }
       Msg::CellChanged { cell_id, new_value } => {
