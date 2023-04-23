@@ -99,12 +99,9 @@ pub fn Cell(props: &CellProps) -> Html {
   };
 
   let input_onfocusout = {
-    let cell_id = props.cell_id.clone();
     let parent_onfocusout = props.onfocusout.clone();
-    let parent_onlostinput = props.onlostinput.clone();
 
     Callback::from(move |ev: FocusEvent| {
-      parent_onlostinput.emit(cell_id);
       parent_onfocusout.emit(ev);
     })
   };
