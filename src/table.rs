@@ -291,7 +291,7 @@ impl Component for Table {
 
     match msg {
       Msg::BigInputFocused => {
-        match self.prev_focused_cell {
+        match self.input_cell.or(self.prev_focused_cell) {
           Some(cell_id) => {
             self.big_input_text = self.inputs.get(&cell_id).cloned().unwrap_or_default();
             self.focused_cell = Some(cell_id);
