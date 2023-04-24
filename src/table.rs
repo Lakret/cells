@@ -286,7 +286,9 @@ impl Component for Table {
     }
   }
 
-  fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+  fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+    log_1(&JsValue::from(format!("msg: {msg:?}")));
+
     match msg {
       Msg::BigInputFocused => {
         match self.prev_focused_cell {
@@ -312,8 +314,30 @@ impl Component for Table {
       },
       Msg::CellFocused { cell_id, value } => {
         self.focused_cell = Some(cell_id);
-        self.big_input_text = value;
-        true
+
+        match self.input_cell {
+          Some(another_cell_id) if another_cell_id != cell_id => {
+            let another_cell_value = self
+              .inputs
+              .get(&another_cell_id)
+              .cloned()
+              .unwrap_or_else(|| String::new());
+
+            // formula cell reference insertion
+            if another_cell_value.trim_start().starts_with('=') {
+              ctx.link().send_message(Msg::CellChanged {
+                cell_id: another_cell_id,
+                new_value: format!("{another_cell_value}{}", cell_id.to_string()),
+              });
+            } else {
+              self.big_input_text = value;
+              self.input_cell = None;
+            }
+
+            true
+          }
+          _ => true,
+        }
       }
       Msg::CellLostFocus { .. } => {
         self.prev_focused_cell = self.focused_cell;

@@ -72,7 +72,7 @@ pub fn Cell(props: &CellProps) -> Html {
     })
   };
 
-  let onkeypress = {
+  let div_onkeypress = {
     let cell_id = props.cell_id.clone();
     let input_ref = input_ref.clone();
     let parent_sendinput = props.sendinput.clone();
@@ -106,6 +106,18 @@ pub fn Cell(props: &CellProps) -> Html {
     })
   };
 
+  let input_onkeypress = {
+    let cell_id = props.cell_id.clone();
+    let parent_onlostinput = props.onlostinput.clone();
+
+    Callback::from(move |ev: KeyboardEvent| {
+      // if enter is pressed, return to div mode
+      if ev.key_code() == 13 {
+        parent_onlostinput.emit(cell_id);
+      };
+    })
+  };
+
   // note that the div gets a tabindex to allow focus & keyboard events;
   // `input_ref` is used to focus the input
   html! {
@@ -123,7 +135,8 @@ pub fn Cell(props: &CellProps) -> Html {
           value={ input_value }
           {onfocus}
           oninput={ props.oninput.clone() }
-          onfocusout={ input_onfocusout  }
+          onkeypress={ input_onkeypress }
+          onfocusout={ input_onfocusout }
         />
 
         <div
@@ -137,7 +150,7 @@ pub fn Cell(props: &CellProps) -> Html {
           ])}
           {onclick}
           {ondblclick}
-          {onkeypress}
+          onkeypress={div_onkeypress}
           onfocusout={ div_onfocusout }
         >
           <span class="grow text-right select-none font-mono">{ div_value }</span>
