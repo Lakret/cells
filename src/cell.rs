@@ -11,7 +11,7 @@ pub struct CellProps {
   pub input: Option<String>,
   pub expr: Option<Expr>,
   pub computed: Option<Expr>,
-  pub onfocused: Callback<(CellId, String)>,
+  pub onfocused: Callback<CellId>,
   pub onfocusout: Callback<FocusEvent>,
   pub onbecameinput: Callback<CellId>,
   pub onlostinput: Callback<CellId>,
@@ -38,21 +38,19 @@ pub fn Cell(props: &CellProps) -> Html {
 
   let onfocus = {
     let cell_id = props.cell_id.clone();
-    let input_value = input_value.clone();
     let parent_onfocus = props.onfocused.clone();
 
     Callback::from(move |_ev: FocusEvent| {
-      parent_onfocus.emit((cell_id, input_value.clone()));
+      parent_onfocus.emit(cell_id);
     })
   };
 
   let onclick = {
     let cell_id = props.cell_id.clone();
-    let input_value = input_value.clone();
     let parent_onfocus = props.onfocused.clone();
 
     Callback::from(move |_ev: MouseEvent| {
-      parent_onfocus.emit((cell_id, input_value.clone()));
+      parent_onfocus.emit(cell_id);
     })
   };
 
@@ -109,11 +107,16 @@ pub fn Cell(props: &CellProps) -> Html {
   let input_onkeypress = {
     let cell_id = props.cell_id.clone();
     let parent_onlostinput = props.onlostinput.clone();
+    let parent_onfocus = props.onfocused.clone();
 
     Callback::from(move |ev: KeyboardEvent| {
-      // if enter is pressed, return to div mode
+      // Enter
       if ev.key_code() == 13 {
+        let mut focused_cell_id = cell_id.clone();
+        focused_cell_id.row += 1;
+
         parent_onlostinput.emit(cell_id);
+        parent_onfocus.emit(focused_cell_id);
       };
     })
   };

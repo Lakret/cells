@@ -13,8 +13,6 @@ use crate::expr::{eval, Expr};
 use crate::parser::parse;
 use crate::paste_modal::PasteModal;
 
-// TODO: enable cell reference insertion if a cell is input and starts with =
-// TODO: keyboard navigation between cells
 #[derive(Debug, PartialEq)]
 pub enum Msg {
   CopyAll,
@@ -22,13 +20,14 @@ pub enum Msg {
   PasteAllContent { serialized_table: String },
   PasteModalClose,
   Help,
-  CellFocused { cell_id: CellId, value: String },
+  CellFocused { cell_id: CellId },
   CellLostFocus { cell_id: CellId },
   CellBecameInput { cell_id: CellId },
   CellLostInput { cell_id: CellId },
   CellChanged { cell_id: CellId, new_value: String },
   BigInputFocused,
   BigInputChanged { new_value: String },
+  BigInputKeyPress { key_code: u32 },
 }
 
 #[derive(Default, Debug)]
@@ -48,8 +47,6 @@ pub struct SerializableTable {
   // serde-json doesn't allow using non-string keys in hashmaps
   inputs: HashMap<String, String>,
 }
-
-// TODO: cell reference insertion mode when cell is edited and starts with =
 
 impl Table {
   fn reeval(&mut self) {
@@ -170,7 +167,10 @@ impl Component for Table {
               let new_value = input.value();
 
               Msg::BigInputChanged { new_value }
-            }) }
+            })}
+            onkeypress={ ctx.link().callback(move |ev: KeyboardEvent| {
+              Msg::BigInputKeyPress { key_code: ev.key_code() }
+            })}
           />
 
           <Btn
@@ -257,11 +257,8 @@ impl Component for Table {
                               expr={self.exprs.get(&cell_id).map(|x| x.clone())}
                               computed={self.computed.get(&cell_id).map(|x| x.clone())}
                               onfocused={
-                                ctx.link().callback(move |(cell_id, value)| {
-                                  // let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
-                                  // let value = input.value();
-
-                                  Msg::CellFocused { cell_id, value }
+                                ctx.link().callback(move |cell_id| {
+                                  Msg::CellFocused { cell_id }
                                 })
                               }
                               onfocusout={
@@ -334,7 +331,26 @@ impl Component for Table {
         }
         None => true,
       },
-      Msg::CellFocused { cell_id, value } => {
+      Msg::BigInputKeyPress { key_code } => {
+        // Enter
+        if key_code == 13 {
+          self.input_cell = None;
+          self.prev_focused_cell = self.focused_cell;
+          self.focused_cell = self
+            .prev_focused_cell
+            .map(|CellId { row, col }| CellId { row: row + 1, col });
+          self.big_input_text = self
+            .focused_cell
+            .and_then(|cell_id| self.inputs.get(&cell_id))
+            .cloned()
+            .unwrap_or_default();
+        }
+
+        true
+      }
+      Msg::CellFocused { cell_id } => {
+        let input_value = self.inputs.get(&cell_id);
+
         match self.edit_cell_value_if_formula_cell_reference_insertion(cell_id) {
           Some((edit_cell_id, edit_cell_value)) => {
             let new_value = format!("{edit_cell_value}{}", cell_id.to_string());
@@ -350,7 +366,7 @@ impl Component for Table {
             }
 
             self.focused_cell = Some(cell_id);
-            self.big_input_text = value;
+            self.big_input_text = input_value.cloned().unwrap_or_default();
           }
         }
         true
