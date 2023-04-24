@@ -13,7 +13,6 @@ use crate::expr::{eval, Expr};
 use crate::parser::parse;
 use crate::paste_modal::PasteModal;
 
-// TODO: add input to cell through the big input
 // TODO: enable cell reference insertion if a cell is input and starts with =
 // TODO: keyboard navigation between cells
 #[derive(Debug, PartialEq)]
@@ -29,6 +28,7 @@ pub enum Msg {
   CellLostInput { cell_id: CellId },
   CellChanged { cell_id: CellId, new_value: String },
   BigInputFocused,
+  BigInputChanged { new_value: String },
 }
 
 #[derive(Default, Debug)]
@@ -143,6 +143,12 @@ impl Component for Table {
             ])}
             value={ self.big_input_text.clone() }
             onfocusin={ ctx.link().callback(move |_ev: FocusEvent| { Msg::BigInputFocused })}
+            oninput={ ctx.link().callback(move |ev: InputEvent| {
+              let input: HtmlInputElement = ev.target().unwrap().dyn_into().unwrap();
+              let new_value = input.value();
+
+              Msg::BigInputChanged { new_value }
+            }) }
           />
 
           <Btn
@@ -292,6 +298,18 @@ impl Component for Table {
         }
         true
       }
+      Msg::BigInputChanged { new_value } => match self.input_cell.or(self.focused_cell) {
+        Some(cell_id) => {
+          self.big_input_text = new_value.clone();
+          let expr = parse(&new_value).unwrap_or_else(|_err| Expr::Str(new_value.clone()));
+          self.inputs.insert(cell_id, new_value);
+          self.exprs.insert(cell_id, expr);
+
+          self.reeval();
+          true
+        }
+        None => true,
+      },
       Msg::CellFocused { cell_id, value } => {
         self.focused_cell = Some(cell_id);
         self.big_input_text = value;
