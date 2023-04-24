@@ -321,6 +321,7 @@ impl Component for Table {
       }
       Msg::BigInputChanged { new_value } => match self.input_cell.or(self.focused_cell) {
         Some(cell_id) => {
+          self.input_cell = Some(cell_id);
           self.big_input_text = new_value.clone();
           let expr = parse(&new_value).unwrap_or_else(|_err| Expr::Str(new_value.clone()));
           self.inputs.insert(cell_id, new_value);
@@ -354,11 +355,21 @@ impl Component for Table {
         match self.edit_cell_value_if_formula_cell_reference_insertion(cell_id) {
           Some((edit_cell_id, edit_cell_value)) => {
             let new_value = format!("{edit_cell_value}{}", cell_id.to_string());
+
             self.big_input_text = new_value.clone();
-            ctx.link().send_message(Msg::CellChanged {
-              cell_id: edit_cell_id,
-              new_value,
-            });
+            self.focused_cell = Some(edit_cell_id);
+            self.input_cell = Some(edit_cell_id);
+            ctx.link().send_message_batch(vec![
+              Msg::CellLostFocus { cell_id },
+              Msg::CellChanged {
+                cell_id: edit_cell_id,
+                new_value,
+              },
+              // TODO: focus is not actually returned to the element
+              Msg::CellFocused {
+                cell_id: edit_cell_id,
+              },
+            ]);
           }
           None => {
             if self.input_cell != Some(cell_id) {
