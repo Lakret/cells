@@ -352,6 +352,8 @@ impl Component for Table {
   }
 
   fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+    log_1(&JsValue::from(format!("{:?}", &msg)));
+
     match msg {
       Msg::BigInputFocused => {
         match self.input_cell.or(self.prev_focused_cell) {
@@ -429,11 +431,15 @@ impl Component for Table {
         }
         true
       }
-      Msg::CellLostFocus { .. } => {
-        self.prev_focused_cell = self.focused_cell;
-        self.focused_cell = None;
-        self.big_input_text = String::from("");
-        true
+      Msg::CellLostFocus { cell_id } => {
+        if self.focused_cell == Some(cell_id) {
+          self.prev_focused_cell = self.focused_cell;
+          self.focused_cell = None;
+          self.big_input_text = String::from("");
+          true
+        } else {
+          false
+        }
       }
       Msg::CellBecameInput { cell_id } => {
         self.input_cell = Some(cell_id);
