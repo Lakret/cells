@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::*;
 use web_sys::console::log_1;
+use web_sys::window;
+use web_sys::HtmlElement;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
@@ -132,6 +134,51 @@ impl Table {
       }
       _ => None,
     }
+  }
+
+  fn focus_input_cell(&self, cell_id: CellId) {
+    window().and_then(|window| {
+      window.document().and_then(|document| {
+        match document.get_element_by_id(&cell_id.to_string()) {
+          Some(elem) => {
+            match elem.dyn_into::<HtmlInputElement>() {
+              Ok(input) => match input.focus() {
+                Ok(_) => (),
+                Err(err) => log_1(&err),
+              },
+              Err(err) => log_1(&err),
+            }
+            Some(())
+          }
+          None => None,
+        }
+      })
+    });
+  }
+
+  fn focus_div_cell(&self, cell_id: CellId) {
+    window().and_then(|window| {
+      window.document().and_then(|document| {
+        match document.get_element_by_id(&format!("div_{}", &cell_id.to_string())) {
+          Some(elem) => {
+            match elem.dyn_into::<HtmlElement>() {
+              Ok(div) => {
+                if document.active_element() != div.clone().dyn_into().ok() {
+                  log_1(&JsValue::from(format!("moved focus to {:?}", &div)));
+                  match div.focus() {
+                    Ok(_) => (),
+                    Err(err) => log_1(&err),
+                  }
+                }
+              }
+              Err(err) => log_1(&err),
+            }
+            Some(())
+          }
+          None => None,
+        }
+      })
+    });
   }
 }
 
@@ -365,15 +412,18 @@ impl Component for Table {
                 cell_id: edit_cell_id,
                 new_value,
               },
-              // TODO: focus is not actually returned to the element
-              Msg::CellFocused {
-                cell_id: edit_cell_id,
-              },
             ]);
+
+            // force focus back on the original input
+            self.focus_input_cell(edit_cell_id);
           }
           None => {
             if self.input_cell != Some(cell_id) {
               self.input_cell = None;
+            }
+
+            if self.input_cell.is_none() {
+              self.focus_div_cell(cell_id);
             }
 
             self.focused_cell = Some(cell_id);
