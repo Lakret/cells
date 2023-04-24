@@ -137,7 +137,7 @@ pub fn Cell(props: &CellProps) -> Html {
           type="text"
           class={classes!(vec![
             "px-2 py-0.5 w-[16rem] h-[2.125rem] outline-none text-right snap-start",
-            "border-collapse border-[1px] border-indigo-900 bg-emerald-800 font-mono focus:border-pink-900",
+            "border-collapse border-[1px] border-indigo-900 bg-indigo-800 font-mono",
             if props.is_input { "z-10" } else { "z-0 select-none" }
           ])}
           value={ input_value }
@@ -152,7 +152,7 @@ pub fn Cell(props: &CellProps) -> Html {
           tabindex="0"
           class={classes!(vec![
             "flex px-2 py-0.5 w-[16rem] -ml-[16rem] h-[2.125rem]",
-            "border-[1px] border-indigo-900 focus:border-yellow-400",
+            "border-[1px] border-indigo-900 ",
             if props.is_input { "z-0" } else { "z-10" },
             if props.is_focused { "bg-indigo-700" } else { "bg-indigo-800" },
           ])}

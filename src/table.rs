@@ -164,7 +164,6 @@ impl Table {
             match elem.dyn_into::<HtmlElement>() {
               Ok(div) => {
                 if document.active_element() != div.clone().dyn_into().ok() {
-                  log_1(&JsValue::from(format!("moved focus to {:?}", &div)));
                   match div.focus() {
                     Ok(_) => (),
                     Err(err) => log_1(&err),
@@ -353,8 +352,6 @@ impl Component for Table {
   }
 
   fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-    log_1(&JsValue::from(format!("msg: {msg:?}")));
-
     match msg {
       Msg::BigInputFocused => {
         match self.input_cell.or(self.prev_focused_cell) {
