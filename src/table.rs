@@ -114,6 +114,28 @@ impl Table {
       ))),
     }
   }
+
+  fn edit_cell_value_if_formula_cell_reference_insertion(
+    &self,
+    clicked_on_cell: CellId,
+  ) -> Option<(CellId, String)> {
+    match self.input_cell {
+      Some(another_cell_id) if another_cell_id != clicked_on_cell => {
+        let another_cell_value = self
+          .inputs
+          .get(&another_cell_id)
+          .cloned()
+          .unwrap_or_else(|| String::new());
+
+        if another_cell_value.trim_start().starts_with('=') {
+          Some((another_cell_id, another_cell_value))
+        } else {
+          None
+        }
+      }
+      _ => None,
+    }
+  }
 }
 
 impl Component for Table {
@@ -313,36 +335,25 @@ impl Component for Table {
         None => true,
       },
       Msg::CellFocused { cell_id, value } => {
-        match self.input_cell {
-          Some(another_cell_id) if another_cell_id != cell_id => {
-            let another_cell_value = self
-              .inputs
-              .get(&another_cell_id)
-              .cloned()
-              .unwrap_or_else(|| String::new());
-
-            // formula cell reference insertion
-            if another_cell_value.trim_start().starts_with('=') {
-              let new_value = format!("{another_cell_value}{}", cell_id.to_string());
-              self.big_input_text = new_value.clone();
-              ctx.link().send_message(Msg::CellChanged {
-                cell_id: another_cell_id,
-                new_value,
-              });
-            } else {
-              self.focused_cell = Some(cell_id);
-              self.big_input_text = value;
+        match self.edit_cell_value_if_formula_cell_reference_insertion(cell_id) {
+          Some((edit_cell_id, edit_cell_value)) => {
+            let new_value = format!("{edit_cell_value}{}", cell_id.to_string());
+            self.big_input_text = new_value.clone();
+            ctx.link().send_message(Msg::CellChanged {
+              cell_id: edit_cell_id,
+              new_value,
+            });
+          }
+          None => {
+            if self.input_cell != Some(cell_id) {
               self.input_cell = None;
             }
 
-            true
-          }
-          _ => {
             self.focused_cell = Some(cell_id);
             self.big_input_text = value;
-            true
           }
         }
+        true
       }
       Msg::CellLostFocus { .. } => {
         self.prev_focused_cell = self.focused_cell;
