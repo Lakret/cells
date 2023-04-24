@@ -313,8 +313,6 @@ impl Component for Table {
         None => true,
       },
       Msg::CellFocused { cell_id, value } => {
-        self.focused_cell = Some(cell_id);
-
         match self.input_cell {
           Some(another_cell_id) if another_cell_id != cell_id => {
             let another_cell_value = self
@@ -325,18 +323,25 @@ impl Component for Table {
 
             // formula cell reference insertion
             if another_cell_value.trim_start().starts_with('=') {
+              let new_value = format!("{another_cell_value}{}", cell_id.to_string());
+              self.big_input_text = new_value.clone();
               ctx.link().send_message(Msg::CellChanged {
                 cell_id: another_cell_id,
-                new_value: format!("{another_cell_value}{}", cell_id.to_string()),
+                new_value,
               });
             } else {
+              self.focused_cell = Some(cell_id);
               self.big_input_text = value;
               self.input_cell = None;
             }
 
             true
           }
-          _ => true,
+          _ => {
+            self.focused_cell = Some(cell_id);
+            self.big_input_text = value;
+            true
+          }
         }
       }
       Msg::CellLostFocus { .. } => {
