@@ -1,5 +1,4 @@
-use wasm_bindgen::JsValue;
-use web_sys::{console::log_1, HtmlInputElement};
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::{cell_id::CellId, expr::Expr};
@@ -78,18 +77,16 @@ pub fn Cell(props: &CellProps) -> Html {
     let parent_onbecameinput = props.onbecameinput.clone();
 
     Callback::from(move |ev: KeyboardEvent| {
-      log_1(&JsValue::from(format!(
-        "DIV ON KEYPRESS {}",
-        cell_id.clone()
-      )));
-      parent_onbecameinput.emit(cell_id);
-      parent_sendinput.emit(ev.key());
+      if ev.key_code() != 13 {
+        parent_onbecameinput.emit(cell_id);
+        parent_sendinput.emit(ev.key());
 
-      input_ref
-        .cast::<HtmlInputElement>()
-        .expect("ref is not attached to an input")
-        .focus()
-        .expect("cannot focus");
+        input_ref
+          .cast::<HtmlInputElement>()
+          .expect("ref is not attached to an input")
+          .focus()
+          .expect("cannot focus");
+      }
     })
   };
 
@@ -151,7 +148,7 @@ pub fn Cell(props: &CellProps) -> Html {
           id={ format!("div_{}", props.cell_id.to_string()) }
           tabindex="0"
           class={classes!(vec![
-            "flex px-2 py-0.5 w-[16rem] -ml-[16rem] h-[2.125rem]",
+            "flex px-2 py-0.5 w-[16rem] -ml-[16rem] h-[2.125rem] outline-none",
             "border-[1px] border-indigo-900 ",
             if props.is_input { "z-0" } else { "z-10" },
             if props.is_focused { "bg-indigo-700" } else { "bg-indigo-800" },
