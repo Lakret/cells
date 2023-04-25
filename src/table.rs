@@ -12,6 +12,7 @@ use crate::btn::*;
 use crate::cell::*;
 use crate::cell_id::CellId;
 use crate::expr::{eval, Expr};
+use crate::help_modal::HelpModal;
 use crate::parser::parse;
 use crate::paste_modal::PasteModal;
 
@@ -22,6 +23,7 @@ pub enum Msg {
   PasteAllContent { serialized_table: String },
   PasteModalClose,
   Help,
+  HelpModalClose,
   CellFocused { cell_id: CellId },
   CellLostFocus { cell_id: CellId },
   CellBecameInput { cell_id: CellId },
@@ -39,6 +41,7 @@ pub struct Table {
   input_cell: Option<CellId>,
   prev_focused_cell: Option<CellId>,
   paste_modal_visible: bool,
+  help_modal_visible: bool,
   inputs: HashMap<CellId, String>,
   exprs: HashMap<CellId, Expr>,
   computed: HashMap<CellId, Expr>,
@@ -48,137 +51,6 @@ pub struct Table {
 pub struct SerializableTable {
   // serde-json doesn't allow using non-string keys in hashmaps
   inputs: HashMap<String, String>,
-}
-
-impl Table {
-  fn reeval(&mut self) {
-    match eval(&self.exprs) {
-      Ok(computed) => self.computed = computed,
-      Err(err) => log_1(&JsValue::from_str(&format!(
-        "Failed when trying to recompute: {err}."
-      ))),
-    };
-  }
-
-  fn cells_to_str(&self) -> String {
-    let t = SerializableTable {
-      inputs: self
-        .inputs
-        .iter()
-        .map(|(cell_id, input)| (cell_id.to_string(), input.clone()))
-        .collect(),
-    };
-    serde_json::to_string(&t).unwrap()
-  }
-
-  fn cells_from_str(&mut self, encoded: &str) {
-    match serde_json::from_str::<SerializableTable>(encoded) {
-      Ok(serializable_table) => {
-        let inputs = serializable_table
-          .inputs
-          .into_iter()
-          .map(|(cell_id, input)| {
-            CellId::try_from(cell_id.as_ref()).map(|cell_id| (cell_id, input))
-          })
-          .collect::<Result<HashMap<_, _>, _>>();
-
-        match inputs {
-          Ok(inputs) => {
-            self.inputs = inputs;
-
-            self.exprs = self
-              .inputs
-              .iter()
-              .filter_map(|(cell_id, input)| match parse(input) {
-                Ok(expr) => Some((cell_id.clone(), expr.clone())),
-                Err(err) => {
-                  log_1(&JsValue::from(format!(
-                    "cannot parse `{}` due to: {err:?}",
-                    input
-                  )));
-                  None
-                }
-              })
-              .collect();
-
-            self.reeval();
-          }
-          Err(err) => log_1(&JsValue::from(format!(
-            "cannot deserialize table from pasted input due to: {err:?}"
-          ))),
-        }
-      }
-      Err(err) => log_1(&JsValue::from(format!(
-        "failed when trying to deserialized table: {err:?}"
-      ))),
-    }
-  }
-
-  fn edit_cell_value_if_formula_cell_reference_insertion(
-    &self,
-    clicked_on_cell: CellId,
-  ) -> Option<(CellId, String)> {
-    match self.input_cell {
-      Some(another_cell_id) if another_cell_id != clicked_on_cell => {
-        let another_cell_value = self
-          .inputs
-          .get(&another_cell_id)
-          .cloned()
-          .unwrap_or_else(|| String::new());
-
-        if another_cell_value.trim_start().starts_with('=') {
-          Some((another_cell_id, another_cell_value))
-        } else {
-          None
-        }
-      }
-      _ => None,
-    }
-  }
-
-  fn focus_input_cell(&self, cell_id: CellId) {
-    window().and_then(|window| {
-      window.document().and_then(|document| {
-        match document.get_element_by_id(&cell_id.to_string()) {
-          Some(elem) => {
-            match elem.dyn_into::<HtmlInputElement>() {
-              Ok(input) => match input.focus() {
-                Ok(_) => (),
-                Err(err) => log_1(&err),
-              },
-              Err(err) => log_1(&err),
-            }
-            Some(())
-          }
-          None => None,
-        }
-      })
-    });
-  }
-
-  fn focus_div_cell(&self, cell_id: CellId) {
-    window().and_then(|window| {
-      window.document().and_then(|document| {
-        match document.get_element_by_id(&format!("div_{}", &cell_id.to_string())) {
-          Some(elem) => {
-            match elem.dyn_into::<HtmlElement>() {
-              Ok(div) => {
-                if document.active_element() != div.clone().dyn_into().ok() {
-                  match div.focus() {
-                    Ok(_) => (),
-                    Err(err) => log_1(&err),
-                  }
-                }
-              }
-              Err(err) => log_1(&err),
-            }
-            Some(())
-          }
-          None => None,
-        }
-      })
-    });
-  }
 }
 
 impl Component for Table {
@@ -198,6 +70,10 @@ impl Component for Table {
           onpaste={ ctx.link().callback(move |serialized_table: String| {
             Msg::PasteAllContent { serialized_table }
           })}
+        />
+        <HelpModal
+          is_visible={ self.help_modal_visible }
+          onclose={ ctx.link().callback(move |()| { Msg::HelpModalClose }) }
         />
 
         <div class="w-screen grow-0 sticky top-0 left-0 z-50 flex gap-4 px-4 py-4 bg-indigo-900">
@@ -487,9 +363,144 @@ impl Component for Table {
         true
       }
       Msg::Help => {
-        // TODO:
+        self.help_modal_visible = true;
+        true
+      }
+      Msg::HelpModalClose => {
+        self.help_modal_visible = false;
         true
       }
     }
+  }
+}
+
+impl Table {
+  fn reeval(&mut self) {
+    match eval(&self.exprs) {
+      Ok(computed) => self.computed = computed,
+      Err(err) => log_1(&JsValue::from_str(&format!(
+        "Failed when trying to recompute: {err}."
+      ))),
+    };
+  }
+
+  fn cells_to_str(&self) -> String {
+    let t = SerializableTable {
+      inputs: self
+        .inputs
+        .iter()
+        .map(|(cell_id, input)| (cell_id.to_string(), input.clone()))
+        .collect(),
+    };
+    serde_json::to_string(&t).unwrap()
+  }
+
+  fn cells_from_str(&mut self, encoded: &str) {
+    match serde_json::from_str::<SerializableTable>(encoded) {
+      Ok(serializable_table) => {
+        let inputs = serializable_table
+          .inputs
+          .into_iter()
+          .map(|(cell_id, input)| {
+            CellId::try_from(cell_id.as_ref()).map(|cell_id| (cell_id, input))
+          })
+          .collect::<Result<HashMap<_, _>, _>>();
+
+        match inputs {
+          Ok(inputs) => {
+            self.inputs = inputs;
+
+            self.exprs = self
+              .inputs
+              .iter()
+              .filter_map(|(cell_id, input)| match parse(input) {
+                Ok(expr) => Some((cell_id.clone(), expr.clone())),
+                Err(err) => {
+                  log_1(&JsValue::from(format!(
+                    "cannot parse `{}` due to: {err:?}",
+                    input
+                  )));
+                  None
+                }
+              })
+              .collect();
+
+            self.reeval();
+          }
+          Err(err) => log_1(&JsValue::from(format!(
+            "cannot deserialize table from pasted input due to: {err:?}"
+          ))),
+        }
+      }
+      Err(err) => log_1(&JsValue::from(format!(
+        "failed when trying to deserialized table: {err:?}"
+      ))),
+    }
+  }
+
+  fn edit_cell_value_if_formula_cell_reference_insertion(
+    &self,
+    clicked_on_cell: CellId,
+  ) -> Option<(CellId, String)> {
+    match self.input_cell {
+      Some(another_cell_id) if another_cell_id != clicked_on_cell => {
+        let another_cell_value = self
+          .inputs
+          .get(&another_cell_id)
+          .cloned()
+          .unwrap_or_else(|| String::new());
+
+        if another_cell_value.trim_start().starts_with('=') {
+          Some((another_cell_id, another_cell_value))
+        } else {
+          None
+        }
+      }
+      _ => None,
+    }
+  }
+
+  fn focus_input_cell(&self, cell_id: CellId) {
+    window().and_then(|window| {
+      window.document().and_then(|document| {
+        match document.get_element_by_id(&cell_id.to_string()) {
+          Some(elem) => {
+            match elem.dyn_into::<HtmlInputElement>() {
+              Ok(input) => match input.focus() {
+                Ok(_) => (),
+                Err(err) => log_1(&err),
+              },
+              Err(err) => log_1(&err),
+            }
+            Some(())
+          }
+          None => None,
+        }
+      })
+    });
+  }
+
+  fn focus_div_cell(&self, cell_id: CellId) {
+    window().and_then(|window| {
+      window.document().and_then(|document| {
+        match document.get_element_by_id(&format!("div_{}", &cell_id.to_string())) {
+          Some(elem) => {
+            match elem.dyn_into::<HtmlElement>() {
+              Ok(div) => {
+                if document.active_element() != div.clone().dyn_into().ok() {
+                  match div.focus() {
+                    Ok(_) => (),
+                    Err(err) => log_1(&err),
+                  }
+                }
+              }
+              Err(err) => log_1(&err),
+            }
+            Some(())
+          }
+          None => None,
+        }
+      })
+    });
   }
 }

@@ -42,8 +42,8 @@ pub fn PasteModal(props: &PasteModalProps) -> Html {
   };
 
   html! {
-    <Modal is_visible={props.is_visible} onclose={props.onclose.clone()}>
-      <div class="flex flex-col gap-2">
+    <Modal title="Paste All Cells from JSON" is_visible={props.is_visible} onclose={props.onclose.clone()}>
+      <div class="flex flex-col gap-4">
         <textarea
           cols="40"
           rows="5"

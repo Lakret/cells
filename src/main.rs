@@ -7,6 +7,7 @@ mod btn;
 mod cell;
 mod cell_id;
 mod expr;
+mod help_modal;
 mod modal;
 mod parser;
 mod paste_modal;
