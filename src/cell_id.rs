@@ -14,21 +14,6 @@ pub struct CellId {
   pub row: usize,
 }
 
-impl CellId {
-  pub fn until<'a>(&'a self, other: &'a Self) -> Box<dyn Iterator<Item = CellId> + 'a> {
-    if self.col == other.col {
-      // column range
-      Box::new((self.row..=other.row).map(|row| CellId { col: self.col, row }))
-    } else if self.row == other.row {
-      // row range
-      Box::new((self.col..=other.col).map(|col| CellId { col, row: self.row }))
-    } else {
-      // TODO: block range
-      todo!()
-    }
-  }
-}
-
 impl Display for CellId {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}{:02}", self.col, self.row)

@@ -20,7 +20,15 @@ pub fn HelpModal(props: &ModalProps) -> Html {
           <li>{"Interpret simple formulas starting with = and containing numeric literals, cell references,
           or the following mathematical operations: + - * / ^."}</li>
           <li>{"Dynamically recompute table on cell change."}</li>
-          <li>{"Copy & paste the content of the table."}</li>
+          <li>
+            {"Copy & paste the content of the table. Here's "}
+            <a href="https://github.com/Lakret/cells/blob/main/sample_tables/infrastructure.json"
+              class="underline hover:text-sky-300"
+              target="_blank">
+              {"a table"}
+            </a>
+            {" you can try."}
+          </li>
           <li>{"Enter can be used to confirm cell input and move to the next cell in the same column."}</li>
         </ul>
         <p>

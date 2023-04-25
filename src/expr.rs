@@ -153,7 +153,6 @@ pub fn eval(exprs: &HashMap<CellId, Expr>) -> Result<HashMap<CellId, Expr>, Box<
           }
         }
         Expr::Apply { .. } => {
-          // TODO: add reference to cell_id in the error message
           let value = expr.eval(&values)?;
           values.insert(cell_id, value);
           computed.insert(cell_id, Expr::Num(value));
@@ -270,10 +269,5 @@ mod test {
       (CellId { col: 'C', row: 1 }, 0.2187456),
     ]);
     assert_eq!(expr.eval(&ctx).unwrap(), -484.33364550000005);
-  }
-
-  #[test]
-  fn eval_test() {
-    // TODO:
   }
 }

@@ -30,7 +30,7 @@ pub fn Btn(props: &BtnProps) -> Html {
     <button
       onclick={props.onclick.clone()}
       class={classes!(vec![
-        "flex items-center justify-center leading-none px-4 py-2 cursor-pointer rounded-md",
+        "flex items-center justify-center leading-none px-4 py-2 cursor-pointer rounded-md text-base",
         "transition-colors duration-400 ease-in-out",
         props.color.to_classes()
       ])}
