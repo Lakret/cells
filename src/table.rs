@@ -228,6 +228,8 @@ impl Component for Table {
   }
 
   fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+    log_1(&JsValue::from(format!("{:?}", &msg)));
+
     match msg {
       Msg::BigInputFocused => {
         match self.input_cell.or(self.prev_focused_cell) {

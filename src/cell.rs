@@ -1,4 +1,4 @@
-use web_sys::HtmlInputElement;
+use web_sys::{window, HtmlInputElement};
 use yew::prelude::*;
 
 use crate::{cell_id::CellId, expr::Expr};
@@ -78,8 +78,19 @@ pub fn Cell(props: &CellProps) -> Html {
 
     Callback::from(move |ev: KeyboardEvent| {
       if ev.key_code() != 13 {
+        // firefox doesn't register this keypress, but chrome does
+        let should_send_input = window()
+          .map(|w| match w.navigator().user_agent() {
+            Ok(user_agent) if user_agent.to_lowercase().contains("firefox") => true,
+            _ => false,
+          })
+          .unwrap_or_default();
+
+        if should_send_input {
+          parent_sendinput.emit(ev.key());
+        }
+
         parent_onbecameinput.emit(cell_id);
-        parent_sendinput.emit(ev.key());
 
         input_ref
           .cast::<HtmlInputElement>()
