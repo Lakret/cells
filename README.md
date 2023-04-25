@@ -2,6 +2,8 @@
 
 This is a demo for YouTube videos about Yew, topological sorting, and parsing with shunting yard algorithm.
 
+There's also a blog post about using Tailwind with Yew [here](https://lakret.net/blog/2023-03-10-tailwind-with-yew).
+
 ## Running
 
 Make sure that [Tailwind CLI](https://tailwindcss.com/docs/installation) is installed and is in the `PATH`.
@@ -39,8 +41,7 @@ could be served by any web server that can handle static files.
 For example:
 
 ```sh
-RUSTFLAGS='--cfg=web_sys_unstable_apis' trunk build --release \
-  -d prod_dist
+RUSTFLAGS='--cfg=web_sys_unstable_apis' trunk build --release -d prod_dist
 
 # e.g., serve with python:
 python -m http.server 8083 --directory prod_dist
@@ -52,14 +53,7 @@ python -m http.server 8083 --directory prod_dist
 
 To use ustable web-sys APIs such as `Clipboard`, you'll need to do the following:
 
-1. Add this to `Cargo.toml`:
-
-```yaml
-[build]
-rustflags=["--cfg=web_sys_unstable_apis"]
-```
-
-Also, don't forget to enable the specific web-sys crate features you're planning to use, e.g.:
+1. Enable the specific web-sys crate features you're planning to use, e.g.:
 
 ```yaml
 [dependencies]

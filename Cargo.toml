@@ -3,12 +3,9 @@ name = "cells"
 version = "0.1.0"
 edition = "2021"
 
-# RUSTFLAGS='--cfg=web_sys_unstable_apis' trunk serve --port 8082 --release
-# "rust-analyzer.cargo.extraEnv": {
-#   "RUSTFLAGS": "--cfg=web_sys_unstable_apis"
-# },
-[build]
-rustflags=["--cfg=web_sys_unstable_apis"]
+[profile.release]
+lto = true
+opt-level = "s"
 
 [dependencies]
 yew = { version = "0.20.0", features = ["csr"] }
