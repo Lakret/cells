@@ -20,17 +20,21 @@ pub fn Modal(props: &ModalProps) -> Html {
   if props.is_visible {
     html! {
       <div class={classes!(vec![
-          "z-[100] fixed top-0 left-0 right-0 w-full p-4 overflow-x-hidden overflow-y-auto h-full max-h-full",
+          "z-[100] fixed top-0 left-0 right-0 w-full overflow-x-hidden overflow-y-auto h-full max-h-full",
           "flex flex-col items-center justify-center backdrop-blur-sm"
         ])}
       >
-        <div class="flex flex-col w-[32rem] py-2 px-4 bg-violet-900 rounded-md">
+        <div class="flex flex-col w-[32rem] p-4 bg-violet-900 rounded-md">
           <div class="flex justify-between pb-2">
             <h1 class="italic text-neutral-200">{ "Paste All Cells from JSON" }</h1>
-            <button onclick={onclose}>{ "⨉" }</button>
+            <button onclick={onclose} class="hover:text-red-400 transition duration-400 ease-in-out">
+              { "⨉" }
+            </button>
           </div>
 
-          { for props.children.iter() }
+          <div class="grow py-2">
+            { for props.children.iter() }
+          </div>
         </div>
       </div>
     }

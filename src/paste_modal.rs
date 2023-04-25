@@ -48,7 +48,7 @@ pub fn PasteModal(props: &PasteModalProps) -> Html {
           cols="40"
           rows="5"
           placeholder="Paste cells JSON here and press 'Paste'"
-          class="outline-none p-1 bg-violet-700"
+          class="outline-none p-1 bg-violet-700 rounded-md"
           value={ (*value).clone() }
           {oninput}
         />
