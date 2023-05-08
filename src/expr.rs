@@ -165,9 +165,9 @@ pub fn eval(exprs: &HashMap<CellId, Expr>) -> Result<HashMap<CellId, Expr>, Box<
 }
 
 fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
-  // maps cell_ids to a vector of cell_ids it depends on
+  // maps cell_ids to a set of cell_ids it depends on
   let mut depends_on: HashMap<_, HashSet<_>> = HashMap::new();
-  // maps cell_ids to a vector of cell_ids depending on it
+  // maps cell_ids to a set of cell_ids depending on it
   let mut dependents: HashMap<_, HashSet<_>> = HashMap::new();
   let mut no_deps = vec![];
 
