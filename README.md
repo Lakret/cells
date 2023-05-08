@@ -1,6 +1,6 @@
-# Cell Demo: A WASM Spreadsheet in Rust with Yew Example
+# Cell Demo: A WASM Spreadsheet in Rust with Yew
 
-This is a demo for YouTube videos about Yew, topological sorting, and parsing with shunting yard algorithm.
+This is a demo for YouTube videos [about Yew](https://youtu.be/1WHJqz0CHBw), topological sorting, and parsing with shunting yard algorithm.
 
 There's also a blog post about using Tailwind with Yew [here](https://lakret.net/blog/2023-03-10-tailwind-with-yew).
 
