@@ -164,72 +164,146 @@ pub fn eval(exprs: &HashMap<CellId, Expr>) -> Result<HashMap<CellId, Expr>, Box<
   Ok(computed)
 }
 
-fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
-  // maps cell_ids to a set of cell_ids it depends on
-  let mut depends_on: HashMap<_, HashSet<_>> = HashMap::new();
-  // maps cell_ids to a set of cell_ids depending on it
-  let mut dependents: HashMap<_, HashSet<_>> = HashMap::new();
-  let mut no_deps = vec![];
+#[derive(Default)]
+struct Graph<T>(HashMap<T, HashSet<T>>);
 
-  for (&cell_id, expr) in exprs.iter() {
-    let deps = expr.get_deps();
+impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
+  fn from(graph: Graph<T>) -> Self {
+    graph.0
+  }
+}
 
-    if deps.is_empty() {
-      no_deps.push(cell_id);
-    } else {
-      for dep_cell_id in deps {
-        depends_on
-          .entry(cell_id)
-          .and_modify(|dependencies| {
-            dependencies.insert(dep_cell_id);
-          })
-          .or_insert_with(|| {
-            let mut s = HashSet::new();
-            s.insert(dep_cell_id);
-            s
-          });
+struct State<T> {
+  pub depends_on: Graph<T>,
+  pub dependents: Graph<T>,
+  pub no_deps: Vec<T>,
+}
 
-        dependents
-          .entry(dep_cell_id)
-          .and_modify(|dependents| {
-            dependents.insert(cell_id);
-          })
-          .or_insert_with(|| {
-            let mut s = HashSet::new();
-            s.insert(cell_id);
-            s
-          });
-      }
+impl<T> Default for State<T> {
+  fn default() -> Self {
+    Self {
+      depends_on: Graph(HashMap::new()),
+      dependents: Graph(HashMap::new()),
+      no_deps: vec![],
     }
   }
+}
+
+impl From<&HashMap<CellId, Expr>> for State<CellId> {
+  fn from(exprs: &HashMap<CellId, Expr>) -> State<CellId> {
+    let mut graphs = State::default();
+
+    for (&cell_id, expr) in exprs.iter() {
+      let deps = expr.get_deps();
+
+      if deps.is_empty() {
+        graphs.no_deps.push(cell_id);
+      } else {
+        for dep_cell_id in deps {
+          graphs
+            .depends_on
+            .0
+            .entry(cell_id)
+            .and_modify(|dependencies| {
+              dependencies.insert(dep_cell_id);
+            })
+            .or_insert_with(|| {
+              let mut s = HashSet::new();
+              s.insert(dep_cell_id);
+              s
+            });
+
+          graphs
+            .dependents
+            .0
+            .entry(dep_cell_id)
+            .and_modify(|dependents| {
+              dependents.insert(cell_id);
+            })
+            .or_insert_with(|| {
+              let mut s = HashSet::new();
+              s.insert(cell_id);
+              s
+            });
+        }
+      }
+    }
+
+    graphs
+  }
+}
+
+// fn resolve(depend)
+
+fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
+  // // maps cell_ids to a set of cell_ids it depends on
+  // let mut depends_on: Graph<CellId> = HashMap::new();
+  // // maps cell_ids to a set of cell_ids depending on it
+  // let mut dependents: Graph<CellId> = HashMap::new();
+  // let mut no_deps = vec![];
+
+  let mut state = State::from(exprs);
+
+  // for (&cell_id, expr) in exprs.iter() {
+  //   let deps = expr.get_deps();
+
+  //   if deps.is_empty() {
+  //     no_deps.push(cell_id);
+  //   } else {
+  //     for dep_cell_id in deps {
+  //       depends_on
+  //         .entry(cell_id)
+  //         .and_modify(|dependencies| {
+  //           dependencies.insert(dep_cell_id);
+  //         })
+  //         .or_insert_with(|| {
+  //           let mut s = HashSet::new();
+  //           s.insert(dep_cell_id);
+  //           s
+  //         });
+
+  //       dependents
+  //         .entry(dep_cell_id)
+  //         .and_modify(|dependents| {
+  //           dependents.insert(cell_id);
+  //         })
+  //         .or_insert_with(|| {
+  //           let mut s = HashSet::new();
+  //           s.insert(cell_id);
+  //           s
+  //         });
+  //     }
+  //   }
+  // }
 
   let mut res = vec![];
-  while let Some(cell_id) = no_deps.pop() {
+  while let Some(cell_id) = state.no_deps.pop() {
     res.push(cell_id);
 
-    if let Some(dependent_cell_ids) = dependents.get(&cell_id) {
+    // get_dependents(dependency_cell_id)
+    if let Some(dependent_cell_ids) = state.dependents.0.get(&cell_id) {
       for dependent_cell_id in dependent_cell_ids.iter() {
-        if let Some(depends_on_cell_ids) = depends_on.get_mut(dependent_cell_id) {
+        if let Some(depends_on_cell_ids) = state.depends_on.0.get_mut(dependent_cell_id) {
           depends_on_cell_ids.remove(&cell_id);
 
           if depends_on_cell_ids.is_empty() {
-            no_deps.push(*dependent_cell_id);
+            state.no_deps.push(*dependent_cell_id);
 
             // we are removing resolved cell_ids from depends_on to be able to report cycles
-            depends_on.remove(dependent_cell_id);
+            state.depends_on.0.remove(dependent_cell_id);
           }
         }
       }
     }
   }
 
-  if depends_on.is_empty() {
+  if state.depends_on.0.is_empty() {
     Ok(res)
   } else {
     Err(
       format!(
         "cycle or non-computable cell reference detected in cells: {:?}",
-        depends_on.keys()
+        state.depends_on.0.keys()
       )
       .into(),
     )
