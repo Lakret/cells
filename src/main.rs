@@ -13,6 +13,7 @@ mod parser;
 mod paste_modal;
 mod table;
 use table::Table;
+mod topological;
 
 #[function_component]
 fn App() -> Html {
