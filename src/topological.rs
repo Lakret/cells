@@ -10,11 +10,12 @@ impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
   }
 }
 
-// TODO: shall we define fully generic topological sort instead?
-pub fn topological_sort(
-  exprs: &HashMap<CellId, Expr>,
-) -> Result<Vec<CellId>, Box<dyn std::error::Error>> {
-  let mut state = State::from(exprs);
+pub fn topological_sort<T, Id>(deps: T) -> Result<Vec<Id>, Box<dyn std::error::Error>>
+where
+  Id: Eq + std::hash::Hash + Copy + std::fmt::Debug,
+  State<Id>: From<T>,
+{
+  let mut state = State::from(deps);
 
   let mut res = vec![];
   while let Some(cell_id) = state.no_deps.pop() {
@@ -50,7 +51,7 @@ pub fn topological_sort(
 ///
 /// Allows (expected) O(1) dependencies & dependents retrieval for any `node_id: T`
 /// and stores `no_deps` vector.
-struct State<T> {
+pub struct State<T> {
   // maps a cell_id to a set of cell_ids it depends on
   depends_on: Graph<T>,
   // maps a cell_id to a set of cell_ids depending on it
@@ -72,12 +73,12 @@ impl<T> State<T>
 where
   T: Eq + std::hash::Hash,
 {
-  fn get_dependents(self: &Self, dependency: &T) -> Option<&HashSet<T>> {
+  pub fn get_dependents(self: &Self, dependency: &T) -> Option<&HashSet<T>> {
     // it's possible to replace the return type with HashSet<T>, but then we'll need to allocate
     self.dependents.0.get(dependency)
   }
 
-  fn is_resolved(self: &Self) -> bool {
+  pub fn is_resolved(self: &Self) -> bool {
     self.depends_on.0.is_empty()
   }
 }
@@ -86,7 +87,7 @@ impl<T> State<T>
 where
   T: Copy + Eq + std::hash::Hash,
 {
-  fn resolve(self: &mut Self, dependent: &T, dependency: &T) {
+  pub fn resolve(self: &mut Self, dependent: &T, dependency: &T) {
     if let Some(dependencies) = self.depends_on.0.get_mut(dependent) {
       dependencies.remove(&dependency);
 
@@ -100,7 +101,7 @@ where
   }
 
   #[allow(dead_code)]
-  fn resolve_for_dependants_of(self: &mut Self, dependency: &T) {
+  pub fn resolve_for_dependants_of(self: &mut Self, dependency: &T) {
     if let Some(dependents) = self.dependents.0.get(dependency) {
       for dependent in dependents.iter() {
         // self.resolve(dependent, dependency);
@@ -117,7 +118,7 @@ where
     }
   }
 
-  fn unresolved(self: &Self) -> impl Iterator<Item = &T> {
+  pub fn unresolved(self: &Self) -> impl Iterator<Item = &T> {
     self.depends_on.0.keys()
   }
 }
