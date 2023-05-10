@@ -179,10 +179,10 @@ impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
 /// and stores `no_deps` vector.
 struct State<T> {
   // maps a cell_id to a set of cell_ids it depends on
-  pub depends_on: Graph<T>,
+  depends_on: Graph<T>,
   // maps a cell_id to a set of cell_ids depending on it
-  pub dependents: Graph<T>,
-  pub no_deps: Vec<T>,
+  dependents: Graph<T>,
+  no_deps: Vec<T>,
 }
 
 impl<T> Default for State<T> {
