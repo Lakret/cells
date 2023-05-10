@@ -173,8 +173,14 @@ impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
   }
 }
 
+/// Preprocessed state for Kahn's topological sorting algorithm.
+///
+/// Allows (expected) O(1) dependencies & dependents retrieval for any `node_id: T`
+/// and stores `no_deps` vector.
 struct State<T> {
+  // maps a cell_id to a set of cell_ids it depends on
   pub depends_on: Graph<T>,
+  // maps a cell_id to a set of cell_ids depending on it
   pub dependents: Graph<T>,
   pub no_deps: Vec<T>,
 }
@@ -233,66 +239,60 @@ impl From<&HashMap<CellId, Expr>> for State<CellId> {
   }
 }
 
-// fn resolve(depend)
+impl<T> State<T>
+where
+  T: Eq + std::hash::Hash,
+{
+  // it's possible to replace the return type with HashSet<T>, but then we'll need to allocate
+  pub fn get_dependents(self: &Self, dependency: &T) -> Option<&HashSet<T>> {
+    self.dependents.0.get(dependency)
+  }
+}
+
+impl<T> State<T>
+where
+  T: Copy + Eq + std::hash::Hash,
+{
+  pub fn resolve(self: &mut Self, dependent: &T, dependency: T) {
+    if let Some(dependencies) = self.depends_on.0.get_mut(dependent) {
+      dependencies.remove(&dependency);
+
+      if dependencies.is_empty() {
+        self.no_deps.push(*dependent);
+
+        // we are removing resolved cell_ids from depends_on to be able to report cycles
+        self.depends_on.0.remove(dependent);
+      }
+    }
+  }
+
+  // TODO:
+  // pub fn resolve_for_dependants_of(self: &mut Self, dependency: T) {
+  //   todo!()
+  // }
+}
 
 fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
-  // // maps cell_ids to a set of cell_ids it depends on
-  // let mut depends_on: Graph<CellId> = HashMap::new();
-  // // maps cell_ids to a set of cell_ids depending on it
-  // let mut dependents: Graph<CellId> = HashMap::new();
-  // let mut no_deps = vec![];
-
   let mut state = State::from(exprs);
-
-  // for (&cell_id, expr) in exprs.iter() {
-  //   let deps = expr.get_deps();
-
-  //   if deps.is_empty() {
-  //     no_deps.push(cell_id);
-  //   } else {
-  //     for dep_cell_id in deps {
-  //       depends_on
-  //         .entry(cell_id)
-  //         .and_modify(|dependencies| {
-  //           dependencies.insert(dep_cell_id);
-  //         })
-  //         .or_insert_with(|| {
-  //           let mut s = HashSet::new();
-  //           s.insert(dep_cell_id);
-  //           s
-  //         });
-
-  //       dependents
-  //         .entry(dep_cell_id)
-  //         .and_modify(|dependents| {
-  //           dependents.insert(cell_id);
-  //         })
-  //         .or_insert_with(|| {
-  //           let mut s = HashSet::new();
-  //           s.insert(cell_id);
-  //           s
-  //         });
-  //     }
-  //   }
-  // }
 
   let mut res = vec![];
   while let Some(cell_id) = state.no_deps.pop() {
     res.push(cell_id);
 
-    // get_dependents(dependency_cell_id)
-    if let Some(dependent_cell_ids) = state.dependents.0.get(&cell_id) {
+    if let Some(dependent_cell_ids) = (&mut state).get_dependents(&cell_id) {
+      // TODO: we either need to do clone here because of borrow checker or provide combined API
       for dependent_cell_id in dependent_cell_ids.iter() {
-        if let Some(depends_on_cell_ids) = state.depends_on.0.get_mut(dependent_cell_id) {
-          depends_on_cell_ids.remove(&cell_id);
+        state.resolve(dependent_cell_id, cell_id);
+        // if let Some(depends_on_cell_ids) = state.depends_on.0.get_mut(dependent_cell_id) {
+        //   depends_on_cell_ids.remove(&cell_id);
 
-          if depends_on_cell_ids.is_empty() {
-            state.no_deps.push(*dependent_cell_id);
+        //   if depends_on_cell_ids.is_empty() {
+        //     state.no_deps.push(*dependent_cell_id);
 
-            // we are removing resolved cell_ids from depends_on to be able to report cycles
-            state.depends_on.0.remove(dependent_cell_id);
-          }
-        }
+        //     // we are removing resolved cell_ids from depends_on to be able to report cycles
+        //     state.depends_on.0.remove(dependent_cell_id);
+        //   }
+        // }
       }
     }
   }
