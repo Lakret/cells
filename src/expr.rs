@@ -253,7 +253,8 @@ impl<T> State<T>
 where
   T: Copy + Eq + std::hash::Hash,
 {
-  pub fn resolve(self: &mut Self, dependent: &T, dependency: T) {
+  #[allow(dead_code)]
+  pub fn resolve(self: &mut Self, dependent: &T, dependency: &T) {
     if let Some(dependencies) = self.depends_on.0.get_mut(dependent) {
       dependencies.remove(&dependency);
 
@@ -266,10 +267,22 @@ where
     }
   }
 
-  // TODO:
-  // pub fn resolve_for_dependants_of(self: &mut Self, dependency: T) {
-  //   todo!()
-  // }
+  pub fn resolve_for_dependants_of(self: &mut Self, dependency: &T) {
+    if let Some(dependents) = self.dependents.0.get(dependency) {
+      for dependent in dependents.iter() {
+        // self.resolve(dependent, dependency);
+        if let Some(dependencies) = self.depends_on.0.get_mut(dependent) {
+          dependencies.remove(&dependency);
+
+          if dependencies.is_empty() {
+            self.no_deps.push(*dependent);
+            // we are removing resolved cell_ids from depends_on to be able to report cycles
+            self.depends_on.0.remove(dependent);
+          }
+        }
+      }
+    }
+  }
 }
 
 fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
@@ -278,23 +291,7 @@ fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dy
   let mut res = vec![];
   while let Some(cell_id) = state.no_deps.pop() {
     res.push(cell_id);
-
-    if let Some(dependent_cell_ids) = (&mut state).get_dependents(&cell_id) {
-      // TODO: we either need to do clone here because of borrow checker or provide combined API
-      for dependent_cell_id in dependent_cell_ids.iter() {
-        state.resolve(dependent_cell_id, cell_id);
-        // if let Some(depends_on_cell_ids) = state.depends_on.0.get_mut(dependent_cell_id) {
-        //   depends_on_cell_ids.remove(&cell_id);
-
-        //   if depends_on_cell_ids.is_empty() {
-        //     state.no_deps.push(*dependent_cell_id);
-
-        //     // we are removing resolved cell_ids from depends_on to be able to report cycles
-        //     state.depends_on.0.remove(dependent_cell_id);
-        //   }
-        // }
-      }
-    }
+    state.resolve_for_dependants_of(&cell_id);
   }
 
   if state.depends_on.0.is_empty() {
