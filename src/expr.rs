@@ -247,6 +247,10 @@ where
     // it's possible to replace the return type with HashSet<T>, but then we'll need to allocate
     self.dependents.0.get(dependency)
   }
+
+  pub fn is_resolved(self: &Self) -> bool {
+    self.depends_on.0.is_empty()
+  }
 }
 
 impl<T> State<T>
@@ -283,9 +287,13 @@ where
       }
     }
   }
+
+  pub fn unresolved(self: &Self) -> impl Iterator<Item = &T> {
+    self.depends_on.0.keys()
+  }
 }
 
-fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
+pub fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dyn Error>> {
   let mut state = State::from(exprs);
 
   let mut res = vec![];
@@ -305,13 +313,13 @@ fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dy
     }
   }
 
-  if state.depends_on.0.is_empty() {
+  if state.is_resolved() {
     Ok(res)
   } else {
     Err(
       format!(
         "cycle or non-computable cell reference detected in cells: {:?}",
-        state.depends_on.0.keys()
+        state.unresolved().collect::<Vec<_>>()
       )
       .into(),
     )
