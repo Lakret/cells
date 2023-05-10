@@ -10,6 +10,7 @@ impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
   }
 }
 
+// TODO: shall we define fully generic topological sort instead?
 pub fn topological_sort(
   exprs: &HashMap<CellId, Expr>,
 ) -> Result<Vec<CellId>, Box<dyn std::error::Error>> {
@@ -67,50 +68,6 @@ impl<T> Default for State<T> {
   }
 }
 
-impl From<&HashMap<CellId, Expr>> for State<CellId> {
-  fn from(exprs: &HashMap<CellId, Expr>) -> State<CellId> {
-    let mut graphs = State::default();
-
-    for (&cell_id, expr) in exprs.iter() {
-      let deps = expr.get_deps();
-
-      if deps.is_empty() {
-        graphs.no_deps.push(cell_id);
-      } else {
-        for dep_cell_id in deps {
-          graphs
-            .depends_on
-            .0
-            .entry(cell_id)
-            .and_modify(|dependencies| {
-              dependencies.insert(dep_cell_id);
-            })
-            .or_insert_with(|| {
-              let mut s = HashSet::new();
-              s.insert(dep_cell_id);
-              s
-            });
-
-          graphs
-            .dependents
-            .0
-            .entry(dep_cell_id)
-            .and_modify(|dependents| {
-              dependents.insert(cell_id);
-            })
-            .or_insert_with(|| {
-              let mut s = HashSet::new();
-              s.insert(cell_id);
-              s
-            });
-        }
-      }
-    }
-
-    graphs
-  }
-}
-
 impl<T> State<T>
 where
   T: Eq + std::hash::Hash,
@@ -162,6 +119,50 @@ where
 
   fn unresolved(self: &Self) -> impl Iterator<Item = &T> {
     self.depends_on.0.keys()
+  }
+}
+
+impl From<&HashMap<CellId, Expr>> for State<CellId> {
+  fn from(exprs: &HashMap<CellId, Expr>) -> State<CellId> {
+    let mut graphs = State::default();
+
+    for (&cell_id, expr) in exprs.iter() {
+      let deps = expr.get_deps();
+
+      if deps.is_empty() {
+        graphs.no_deps.push(cell_id);
+      } else {
+        for dep_cell_id in deps {
+          graphs
+            .depends_on
+            .0
+            .entry(cell_id)
+            .and_modify(|dependencies| {
+              dependencies.insert(dep_cell_id);
+            })
+            .or_insert_with(|| {
+              let mut s = HashSet::new();
+              s.insert(dep_cell_id);
+              s
+            });
+
+          graphs
+            .dependents
+            .0
+            .entry(dep_cell_id)
+            .and_modify(|dependents| {
+              dependents.insert(cell_id);
+            })
+            .or_insert_with(|| {
+              let mut s = HashSet::new();
+              s.insert(cell_id);
+              s
+            });
+        }
+      }
+    }
+
+    graphs
   }
 }
 
