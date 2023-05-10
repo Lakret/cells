@@ -243,7 +243,6 @@ impl<T> State<T>
 where
   T: Eq + std::hash::Hash,
 {
-  #[allow(dead_code)]
   pub fn get_dependents(self: &Self, dependency: &T) -> Option<&HashSet<T>> {
     // it's possible to replace the return type with HashSet<T>, but then we'll need to allocate
     self.dependents.0.get(dependency)
@@ -254,7 +253,6 @@ impl<T> State<T>
 where
   T: Copy + Eq + std::hash::Hash,
 {
-  #[allow(dead_code)]
   pub fn resolve(self: &mut Self, dependent: &T, dependency: &T) {
     if let Some(dependencies) = self.depends_on.0.get_mut(dependent) {
       dependencies.remove(&dependency);
@@ -268,6 +266,7 @@ where
     }
   }
 
+  #[allow(dead_code)]
   pub fn resolve_for_dependants_of(self: &mut Self, dependency: &T) {
     if let Some(dependents) = self.dependents.0.get(dependency) {
       for dependent in dependents.iter() {
@@ -292,7 +291,18 @@ fn topological_sort(exprs: &HashMap<CellId, Expr>) -> Result<Vec<CellId>, Box<dy
   let mut res = vec![];
   while let Some(cell_id) = state.no_deps.pop() {
     res.push(cell_id);
-    state.resolve_for_dependants_of(&cell_id);
+
+    // the following code in this while loop is possible to replace with
+    // the following line, but we prefer significantly better readability over
+    // slightly better performance (this avoids one clone)
+    //
+    // state.resolve_for_dependants_of(&cell_id);
+    //
+    if let Some(dependents) = state.get_dependents(&cell_id) {
+      for dependent in dependents.clone() {
+        state.resolve(&dependent, &cell_id);
+      }
+    }
   }
 
   if state.depends_on.0.is_empty() {
