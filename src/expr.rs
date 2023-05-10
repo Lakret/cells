@@ -243,8 +243,9 @@ impl<T> State<T>
 where
   T: Eq + std::hash::Hash,
 {
-  // it's possible to replace the return type with HashSet<T>, but then we'll need to allocate
+  #[allow(dead_code)]
   pub fn get_dependents(self: &Self, dependency: &T) -> Option<&HashSet<T>> {
+    // it's possible to replace the return type with HashSet<T>, but then we'll need to allocate
     self.dependents.0.get(dependency)
   }
 }
