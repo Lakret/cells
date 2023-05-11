@@ -1,14 +1,8 @@
 use crate::{cell_id::CellId, expr::Expr};
-use std::collections::{HashMap, HashSet};
-
-#[derive(Default)]
-struct Graph<T>(HashMap<T, HashSet<T>>);
-
-impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
-  fn from(graph: Graph<T>) -> Self {
-    graph.0
-  }
-}
+use std::{
+  collections::{HashMap, HashSet},
+  hash::Hash,
+};
 
 /// Performs topological sorting for a `T` that can be converted to `State<Id>`
 /// (`From<T>` is implemented for `State<Id>`).
@@ -19,7 +13,6 @@ impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
 /// the following line, but we prefer significantly better readability over
 /// slightly better performance (this avoids one clone):
 /// `state.resolve_for_dependants_of(&cell_id);`
-///
 pub fn topological_sort<T, Id>(deps: T) -> Result<Vec<Id>, Box<dyn std::error::Error>>
 where
   Id: Eq + std::hash::Hash + Copy + std::fmt::Debug,
@@ -51,6 +44,34 @@ where
   Ok(res)
 }
 
+/// A directed graph is represented as a hash map mapping a vertex `a`
+/// to a hash set of the vertices connected to it with an edge starting at `a`.
+///
+/// For example, graph `a -> b, b -> c, a -> c` will be represented as:
+///
+/// HashMap{
+///   a: HashSet{ b, c },
+///   b: HashSet{ c }
+/// }
+type Graph<T> = HashMap<T, HashSet<T>>;
+
+#[inline]
+pub fn add_edge<T>(graph: &mut Graph<T>, from: T, to: T)
+where
+  T: Eq + Hash + Copy,
+{
+  graph
+    .entry(from)
+    .and_modify(|pointees| {
+      pointees.insert(to);
+    })
+    .or_insert_with(|| {
+      let mut s = HashSet::new();
+      s.insert(to);
+      s
+    });
+}
+
 /// Preprocessed state for Kahn's topological sorting algorithm.
 ///
 /// Allows (expected) O(1) dependencies & dependents retrieval for any `node_id: T`
@@ -66,8 +87,8 @@ pub struct State<T> {
 impl<T> Default for State<T> {
   fn default() -> Self {
     Self {
-      depends_on: Graph(HashMap::new()),
-      dependents: Graph(HashMap::new()),
+      depends_on: HashMap::new(),
+      dependents: HashMap::new(),
       no_deps: vec![],
     }
   }
@@ -79,11 +100,11 @@ where
 {
   pub fn get_dependents(self: &Self, dependency: &T) -> Option<&HashSet<T>> {
     // it's possible to replace the return type with HashSet<T>, but then we'll need to allocate
-    self.dependents.0.get(dependency)
+    self.dependents.get(dependency)
   }
 
   pub fn is_resolved(self: &Self) -> bool {
-    self.depends_on.0.is_empty()
+    self.depends_on.is_empty()
   }
 }
 
@@ -92,20 +113,20 @@ where
   T: Copy + Eq + std::hash::Hash,
 {
   pub fn resolve(self: &mut Self, dependent: &T, dependency: &T) {
-    if let Some(dependencies) = self.depends_on.0.get_mut(dependent) {
+    if let Some(dependencies) = self.depends_on.get_mut(dependent) {
       dependencies.remove(&dependency);
 
       if dependencies.is_empty() {
         self.no_deps.push(*dependent);
 
         // we are removing resolved cell_ids from depends_on to be able to report cycles
-        self.depends_on.0.remove(dependent);
+        self.depends_on.remove(dependent);
       }
     }
   }
 
   pub fn unresolved(self: &Self) -> impl Iterator<Item = &T> {
-    self.depends_on.0.keys()
+    self.depends_on.keys()
   }
 }
 
@@ -120,31 +141,8 @@ impl From<&HashMap<CellId, Expr>> for State<CellId> {
         graphs.no_deps.push(cell_id);
       } else {
         for dep_cell_id in deps {
-          graphs
-            .depends_on
-            .0
-            .entry(cell_id)
-            .and_modify(|dependencies| {
-              dependencies.insert(dep_cell_id);
-            })
-            .or_insert_with(|| {
-              let mut s = HashSet::new();
-              s.insert(dep_cell_id);
-              s
-            });
-
-          graphs
-            .dependents
-            .0
-            .entry(dep_cell_id)
-            .and_modify(|dependents| {
-              dependents.insert(cell_id);
-            })
-            .or_insert_with(|| {
-              let mut s = HashSet::new();
-              s.insert(cell_id);
-              s
-            });
+          add_edge(&mut graphs.depends_on, cell_id, dep_cell_id);
+          add_edge(&mut graphs.dependents, dep_cell_id, cell_id);
         }
       }
     }
