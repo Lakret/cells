@@ -40,17 +40,17 @@ where
     }
   }
 
-  if state.is_resolved() {
-    Ok(res)
-  } else {
-    Err(
+  if !state.is_resolved() {
+    return Err(
       format!(
         "cycle or non-computable cell reference detected in cells: {:?}",
         state.unresolved().collect::<Vec<_>>()
       )
       .into(),
-    )
+    );
   }
+
+  Ok(res)
 }
 
 /// Preprocessed state for Kahn's topological sorting algorithm.
