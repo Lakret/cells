@@ -119,7 +119,7 @@ where
       if dependencies.is_empty() {
         self.no_deps.push(*dependent);
 
-        // we are removing resolved cell_ids from depends_on to be able to report cycles
+        // to be able to report unresolved
         self.depends_on.remove(dependent);
       }
     }
