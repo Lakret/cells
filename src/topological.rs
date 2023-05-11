@@ -11,23 +11,27 @@ impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
 }
 
 // TODO: try RefCell optimization & see if it leads to improved performance
+/// Performs topological sorting for a `T` that can be converted to `State<Id>`
+/// (`From<T>` is implemented for `State<Id>`).
+///
+/// ## Implementation Notes
+///
+/// The following code in this while loop is possible to replace with
+/// the following line, but we prefer significantly better readability over
+/// slightly better performance (this avoids one clone):
+/// `state.resolve_for_dependants_of(&cell_id);`
+///
 pub fn topological_sort<T, Id>(deps: T) -> Result<Vec<Id>, Box<dyn std::error::Error>>
 where
   Id: Eq + std::hash::Hash + Copy + std::fmt::Debug,
   State<Id>: From<T>,
 {
+  let mut res = vec![];
   let mut state = State::from(deps);
 
-  let mut res = vec![];
   while let Some(cell_id) = state.no_deps.pop() {
     res.push(cell_id);
 
-    // the following code in this while loop is possible to replace with
-    // the following line, but we prefer significantly better readability over
-    // slightly better performance (this avoids one clone)
-    //
-    // state.resolve_for_dependants_of(&cell_id);
-    //
     if let Some(dependents) = state.get_dependents(&cell_id) {
       for dependent in dependents.clone() {
         state.resolve(&dependent, &cell_id);
@@ -35,17 +39,17 @@ where
     }
   }
 
-  if state.is_resolved() {
-    Ok(res)
-  } else {
-    Err(
+  if !state.is_resolved() {
+    return Err(
       format!(
         "cycle or non-computable cell reference detected in cells: {:?}",
         state.unresolved().collect::<Vec<_>>()
       )
       .into(),
-    )
+    );
   }
+
+  Ok(res)
 }
 
 /// Preprocessed state for Kahn's topological sorting algorithm.
