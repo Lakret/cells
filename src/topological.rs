@@ -135,14 +135,14 @@ impl From<&HashMap<CellId, Expr>> for State<CellId> {
     let mut graphs = State::default();
 
     for (&cell_id, expr) in exprs.iter() {
-      let deps = expr.get_deps();
+      let dependencies = expr.get_deps();
 
-      if deps.is_empty() {
+      if dependencies.is_empty() {
         graphs.no_deps.push(cell_id);
       } else {
-        for dep_cell_id in deps {
-          add_edge(&mut graphs.depends_on, cell_id, dep_cell_id);
-          add_edge(&mut graphs.dependents, dep_cell_id, cell_id);
+        for dependency_cell_id in dependencies {
+          add_edge(&mut graphs.depends_on, cell_id, dependency_cell_id);
+          add_edge(&mut graphs.dependents, dependency_cell_id, cell_id);
         }
       }
     }
