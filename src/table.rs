@@ -48,50 +48,6 @@ pub struct Table {
   computed: HashMap<CellId, Expr>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SerializableTable {
-  // serde-json doesn't allow using non-string keys in hashmaps
-  pub inputs: HashMap<String, String>,
-}
-
-pub fn parse_from_input(
-  encoded: &str,
-) -> Result<(HashMap<CellId, String>, HashMap<CellId, Expr>), Box<dyn Error>> {
-  match serde_json::from_str::<SerializableTable>(encoded) {
-    Ok(serializable_table) => {
-      let inputs = serializable_table
-        .inputs
-        .into_iter()
-        .map(|(cell_id, input)| CellId::try_from(cell_id.as_ref()).map(|cell_id| (cell_id, input)))
-        .collect::<Result<HashMap<_, _>, _>>();
-
-      match inputs {
-        Ok(inputs) => {
-          let mut exprs = HashMap::new();
-          for (cell_id, input) in &inputs {
-            match parse(&input) {
-              Ok(expr) => {
-                exprs.insert(*cell_id, expr);
-              }
-              Err(err) => {
-                return Err(
-                  format!("cannot parse `{cell_id}` with `{input}` due to: {err:?}").into(),
-                )
-              }
-            }
-          }
-
-          Ok((inputs, exprs))
-        }
-        Err(err) => {
-          Err(format!("cannot deserialize table from pasted input due to: {err:?}").into())
-        }
-      }
-    }
-    Err(err) => Err(format!("failed when trying to deserialized table: {err:?}").into()),
-  }
-}
-
 impl Component for Table {
   type Message = Msg;
   type Properties = ();
@@ -509,5 +465,49 @@ impl Table {
         }
       })
     });
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SerializableTable {
+  // serde-json doesn't allow using non-string keys in hashmaps
+  pub inputs: HashMap<String, String>,
+}
+
+pub fn parse_from_input(
+  encoded: &str,
+) -> Result<(HashMap<CellId, String>, HashMap<CellId, Expr>), Box<dyn Error>> {
+  match serde_json::from_str::<SerializableTable>(encoded) {
+    Ok(serializable_table) => {
+      let inputs = serializable_table
+        .inputs
+        .into_iter()
+        .map(|(cell_id, input)| CellId::try_from(cell_id.as_ref()).map(|cell_id| (cell_id, input)))
+        .collect::<Result<HashMap<_, _>, _>>();
+
+      match inputs {
+        Ok(inputs) => {
+          let mut exprs = HashMap::new();
+          for (cell_id, input) in &inputs {
+            match parse(&input) {
+              Ok(expr) => {
+                exprs.insert(*cell_id, expr);
+              }
+              Err(err) => {
+                return Err(
+                  format!("cannot parse `{cell_id}` with `{input}` due to: {err:?}").into(),
+                )
+              }
+            }
+          }
+
+          Ok((inputs, exprs))
+        }
+        Err(err) => {
+          Err(format!("cannot deserialize table from pasted input due to: {err:?}").into())
+        }
+      }
+    }
+    Err(err) => Err(format!("failed when trying to deserialized table: {err:?}").into()),
   }
 }

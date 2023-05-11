@@ -10,7 +10,6 @@ impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
   }
 }
 
-// TODO: try RefCell optimization & see if it leads to improved performance
 /// Performs topological sorting for a `T` that can be converted to `State<Id>`
 /// (`From<T>` is implemented for `State<Id>`).
 ///
@@ -101,24 +100,6 @@ where
 
         // we are removing resolved cell_ids from depends_on to be able to report cycles
         self.depends_on.0.remove(dependent);
-      }
-    }
-  }
-
-  #[allow(dead_code)]
-  pub fn resolve_for_dependants_of(self: &mut Self, dependency: &T) {
-    if let Some(dependents) = self.dependents.0.get(dependency) {
-      for dependent in dependents.iter() {
-        // self.resolve(dependent, dependency);
-        if let Some(dependencies) = self.depends_on.0.get_mut(dependent) {
-          dependencies.remove(&dependency);
-
-          if dependencies.is_empty() {
-            self.no_deps.push(*dependent);
-            // we are removing resolved cell_ids from depends_on to be able to report cycles
-            self.depends_on.0.remove(dependent);
-          }
-        }
       }
     }
   }
