@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::error::Error;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::*;
 use web_sys::console::log_1;
@@ -50,7 +51,45 @@ pub struct Table {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SerializableTable {
   // serde-json doesn't allow using non-string keys in hashmaps
-  inputs: HashMap<String, String>,
+  pub inputs: HashMap<String, String>,
+}
+
+pub fn parse_from_input(
+  encoded: &str,
+) -> Result<(HashMap<CellId, String>, HashMap<CellId, Expr>), Box<dyn Error>> {
+  match serde_json::from_str::<SerializableTable>(encoded) {
+    Ok(serializable_table) => {
+      let inputs = serializable_table
+        .inputs
+        .into_iter()
+        .map(|(cell_id, input)| CellId::try_from(cell_id.as_ref()).map(|cell_id| (cell_id, input)))
+        .collect::<Result<HashMap<_, _>, _>>();
+
+      match inputs {
+        Ok(inputs) => {
+          let mut exprs = HashMap::new();
+          for (cell_id, input) in &inputs {
+            match parse(&input) {
+              Ok(expr) => {
+                exprs.insert(*cell_id, expr);
+              }
+              Err(err) => {
+                return Err(
+                  format!("cannot parse `{cell_id}` with `{input}` due to: {err:?}").into(),
+                )
+              }
+            }
+          }
+
+          Ok((inputs, exprs))
+        }
+        Err(err) => {
+          Err(format!("cannot deserialize table from pasted input due to: {err:?}").into())
+        }
+      }
+    }
+    Err(err) => Err(format!("failed when trying to deserialized table: {err:?}").into()),
+  }
 }
 
 impl Component for Table {
@@ -396,45 +435,13 @@ impl Table {
   }
 
   fn cells_from_str(&mut self, encoded: &str) {
-    match serde_json::from_str::<SerializableTable>(encoded) {
-      Ok(serializable_table) => {
-        let inputs = serializable_table
-          .inputs
-          .into_iter()
-          .map(|(cell_id, input)| {
-            CellId::try_from(cell_id.as_ref()).map(|cell_id| (cell_id, input))
-          })
-          .collect::<Result<HashMap<_, _>, _>>();
-
-        match inputs {
-          Ok(inputs) => {
-            self.inputs = inputs;
-
-            self.exprs = self
-              .inputs
-              .iter()
-              .filter_map(|(cell_id, input)| match parse(input) {
-                Ok(expr) => Some((cell_id.clone(), expr.clone())),
-                Err(err) => {
-                  log_1(&JsValue::from(format!(
-                    "cannot parse `{}` due to: {err:?}",
-                    input
-                  )));
-                  None
-                }
-              })
-              .collect();
-
-            self.reeval();
-          }
-          Err(err) => log_1(&JsValue::from(format!(
-            "cannot deserialize table from pasted input due to: {err:?}"
-          ))),
-        }
+    match parse_from_input(encoded) {
+      Ok((inputs, exprs)) => {
+        self.inputs = inputs;
+        self.exprs = exprs;
+        self.reeval();
       }
-      Err(err) => log_1(&JsValue::from(format!(
-        "failed when trying to deserialized table: {err:?}"
-      ))),
+      Err(err) => log_1(&JsValue::from(err.to_string())),
     }
   }
 

@@ -10,6 +10,7 @@ impl<T> From<Graph<T>> for HashMap<T, HashSet<T>> {
   }
 }
 
+// TODO: try RefCell optimization & see if it leads to improved performance
 pub fn topological_sort<T, Id>(deps: T) -> Result<Vec<Id>, Box<dyn std::error::Error>>
 where
   Id: Eq + std::hash::Hash + Copy + std::fmt::Debug,
