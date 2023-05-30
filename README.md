@@ -74,3 +74,7 @@ RUSTFLAGS='--cfg=web_sys_unstable_apis' trunk serve --port 8082 --release
   "RUSTFLAGS": "--cfg=web_sys_unstable_apis"
 }
 ```
+
+Please note that currently there is [a bug in cargo](https://github.com/rust-lang/cargo/issues/8716)
+that makes the setting above cause non-incrementral recompiles. It doesn't seem that there's a
+good way to avoid it, so I would recommend disabling this VSCode setting when working on non-WASM projects.
